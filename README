@@ -1,0 +1,125 @@
+NAME
+    Perinci::Sub::Gen::Undoable - Generate undoable (transactional,
+    dry-runnable, idempotent) function
+
+VERSION
+    version 0.01
+
+SYNOPSIS
+     # See an example, like in Setup::File::Symlink
+
+DESCRIPTION
+    This module helps you write undoable/transactional functions (as well as
+    functions that support dry-run and are idempotent).
+
+SEE ALSO
+    Rinci::function::Undo, Rinci::function::Transaction, Rinci
+
+    Setup.
+
+FUNCTIONS
+  gen_undoable_func(%args) -> [status, msg, result, meta]
+    Generate undoable (transactional, dry-runnable, idempotent) function.
+
+    This function is basically a helper for writing undoable (as well as
+    transactional, dry-runnable, and idempotent) function. This function
+    will generate a function with the basic structure, and you supply the
+    'business-logic' bits through the 'build_steps' and 'steps' arguments.
+
+    This generator helps because writing an undoable and transactional
+    function is a bit tricky. This helper shields function writer from
+    having to interact with the transaction manager and just focus on
+    writing the actual steps.
+
+    Some notes:
+
+    *   Though it generally should not die(), generated function might still
+        die, there is no big eval{} loop inside. But this is usually OK
+        since a function wrapper (like Perinci::Sub::Wrapper) has this loop.
+
+    For examples, see Setup::* Perl modules.
+
+    Arguments ('*' denotes required arguments):
+
+    *   args => *hash* (default: {})
+
+        Specification for generated function's arguments.
+
+        This is just like the metadata property 'args'.
+
+    *   build_steps* => *code*
+
+        Code to build steps.
+
+        This is the code that should build the steps. Code will be given the
+        whole function's arguments and should return an enveloped response.
+        If response is not a success one, it will be used as the function's
+        response. Otherwise, code should return the steps (an array). By
+        convention, each step should be an array like this: [NAME, ...]
+        where the first element is the step name and the rest are step
+        arguments.
+
+    *   description* => *śtr*
+
+        Generated function's description.
+
+    *   hook_check_args* => *code*
+
+        Code to check function's arguments.
+
+        This is a (temporary?) hook to allow the generated function to check
+        its arguments. This should later be mostly unnecessary when
+        Perinci::Sub::Wrapper already integrates with Data::Sah to generate
+        argument-checking code from schema.
+
+        Code is given arguments as a hashref to be able to modify them (e.g.
+        set defaults, etc) and should return an enveloped response. If
+        response is not a success one, it will be used as the function's
+        response.
+
+    *   name* => *str*
+
+        Fully qualified function name.
+
+    *   steps* => *hash*
+
+        Steps specification.
+
+    *   summary* => *str*
+
+        Generated function's summary.
+
+    *   trash_dir => *bool* (default: 0)
+
+        Whether function needs undo trash directory.
+
+    *   tx => *hash* (default: {})
+
+        Whether function is transactional.
+
+        Valid values include {use=>1} (meaning function can use transaction
+        and will utilize it if given '-tx' special argument), {req=>1}
+        (meaning function always require '-tx' and will return error
+        response if not given it). Otherwise function will not use
+        transaction, undo data will be passed to function via '-undodata'
+        special argument and returned by function in 'undodata' result
+        metadata.
+
+    Return value:
+
+    Returns an enveloped result (an array). First element (status) is an
+    integer containing HTTP status code (200 means OK, 4xx caller error, 5xx
+    function error). Second element (msg) is a string containing error
+    message, or 'OK' if status is 200. Third element (result) is optional,
+    the actual result. Fourth element (meta) is called result metadata and
+    is optional, a hash that contains extra information.
+
+AUTHOR
+    Steven Haryanto <stevenharyanto@gmail.com>
+
+COPYRIGHT AND LICENSE
+    This software is copyright (c) 2012 by Steven Haryanto.
+
+    This is free software; you can redistribute it and/or modify it under
+    the same terms as the Perl 5 programming language system itself.
+
