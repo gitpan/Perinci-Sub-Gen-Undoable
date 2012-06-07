@@ -21,4 +21,4 @@ requires:
 resources:
   homepage: http://search.cpan.org/dist/Perinci-Sub-Gen-Undoable/
   repository: http://github.com/sharyanto/perl-Perinci-Sub-Gen-Undoable
-version: 0.01
+version: 0.02

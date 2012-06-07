@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.01
+    version 0.02
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -28,8 +28,9 @@ FUNCTIONS
 
     This generator helps because writing an undoable and transactional
     function is a bit tricky. This helper shields function writer from
-    having to interact with the transaction manager and just focus on
-    writing the actual steps.
+    having to interact with the transaction manager, or writing the steps
+    loop, or writing the rollback mechanism on his/her own, and just focus
+    on writing the actual steps.
 
     Some notes:
 

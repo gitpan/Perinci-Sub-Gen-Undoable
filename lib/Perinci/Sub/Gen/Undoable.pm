@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.01'; # VERSION
+our $VERSION = '0.02'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -27,7 +27,8 @@ generate a function with the basic structure, and you supply the
 
 This generator helps because writing an undoable and transactional function is a
 bit tricky. This helper shields function writer from having to interact with the
-transaction manager and just focus on writing the actual steps.
+transaction manager, or writing the steps loop, or writing the rollback
+mechanism on his/her own, and just focus on writing the actual steps.
 
 Some notes:
 
@@ -207,8 +208,7 @@ sub gen_undoable_func {
             if !$cid && $tx && $undo_action =~ /\A(un|re)do\z/;
         if (!$cid && $tx) {
             $res = $tx->record_call(f=>$gen_args{name}, args=>\%fargs);
-            return ["Can't record call in tx manager: $res->[0] - $res->[1]"]
-                unless $res->[0] == 200;
+            return $res unless $res->[0] == 200;
             $cid = $res->[2];
         }
         return [412, "Please supply -tx_manager"] if !$dry_run &&
@@ -251,7 +251,7 @@ sub gen_undoable_func {
                 unless ref($steps) eq 'ARRAY';
             if ($gen_args{trash_dir}) {
                 if ($tx) {
-                    $res = $tx->get_undo_trash_dir;
+                    $res = $tx->get_trash_dir;
                     return [500, "Can't get trash dir: $res->[0] - $res->[1]"]
                         unless $res->[0] == 200;
                     $fargs{-undo_trash_dir} //= $res->[2];
@@ -376,7 +376,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.01
+version 0.02
 
 =head1 SYNOPSIS
 
@@ -407,7 +407,8 @@ generate a function with the basic structure, and you supply the
 
 This generator helps because writing an undoable and transactional function is a
 bit tricky. This helper shields function writer from having to interact with the
-transaction manager and just focus on writing the actual steps.
+transaction manager, or writing the steps loop, or writing the rollback
+mechanism on his/her own, and just focus on writing the actual steps.
 
 Some notes:
 

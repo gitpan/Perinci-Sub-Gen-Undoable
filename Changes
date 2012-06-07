@@ -1,5 +1,10 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.02     2012-06-07
+
+         Fix a couple of typos.
+
+
 0.01     2012-06-06
 
          First release. Setup::File::Symlink works using this module. Minimal
