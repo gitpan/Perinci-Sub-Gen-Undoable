@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.03
+    version 0.04
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink

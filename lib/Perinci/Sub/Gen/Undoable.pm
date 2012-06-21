@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.03'; # VERSION
+our $VERSION = '0.04'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -323,10 +323,12 @@ sub gen_undoable_func {
         } # step
 
         my $res0; # store failed res before rollback
+        $res0 //= $res;
 
         if ($res && $res->[0] != 200 && $res->[0] != 304) {
             $log->warnf("Step failed: %s%s", $res,
                         $is_rollback ? "" : ", rolling back ...");
+
             if ($tx && !$is_rollback) {
                 my $rbres = $tx->rollback;
                 if ($rbres->[0] != 200) {
@@ -337,7 +339,6 @@ sub gen_undoable_func {
                 }
             } elsif (!$is_rollback) {
                 # perform our own rollback by performing $undo_steps as $steps
-                $res0       = $res;
                 $steps      = $undo_steps;
                 $undo_steps = [];
                 $is_rollback++;
@@ -380,7 +381,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.03
+version 0.04
 
 =head1 SYNOPSIS
 
