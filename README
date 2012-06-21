@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.02
+    version 0.03
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -17,7 +17,12 @@ SEE ALSO
 
     Setup.
 
+DESCRIPTION
+    This module has Rinci metadata.
+
 FUNCTIONS
+    None are exported by default, but they are exportable.
+
   gen_undoable_func(%args) -> [status, msg, result, meta]
     Generate undoable (transactional, dry-runnable, idempotent) function.
 
@@ -73,8 +78,8 @@ FUNCTIONS
         Perinci::Sub::Wrapper already integrates with Data::Sah to generate
         argument-checking code from schema.
 
-        Code is given arguments as a hashref to be able to modify them (e.g.
-        set defaults, etc) and should return an enveloped response. If
+        Code is given arguments as a *hashref* to be able to modify them
+        (e.g. set defaults, etc) and should return an enveloped response. If
         response is not a success one, it will be used as the function's
         response.
 
@@ -102,8 +107,8 @@ FUNCTIONS
         and will utilize it if given '-tx' special argument), {req=>1}
         (meaning function always require '-tx' and will return error
         response if not given it). Otherwise function will not use
-        transaction, undo data will be passed to function via '-undodata'
-        special argument and returned by function in 'undodata' result
+        transaction, undo data will be passed to function via '-undo*data'
+        special argument and returned by function in 'undo*data' result
         metadata.
 
     Return value:

@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.02'; # VERSION
+our $VERSION = '0.03'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -207,7 +207,7 @@ sub gen_undoable_func {
         return [400, "Please supply -tx_call_id on undo/redo (with tx)"]
             if !$cid && $tx && $undo_action =~ /\A(un|re)do\z/;
         if (!$cid && $tx) {
-            $res = $tx->record_call(f=>$gen_args{name}, args=>\%fargs);
+            $res = $tx->record_call(f=>$gen_args{name}, args=>{@_});
             return $res unless $res->[0] == 200;
             $cid = $res->[2];
         }
@@ -274,11 +274,14 @@ sub gen_undoable_func {
 
         # whether we are performing our own rollback (not using $tx)
         my $is_rollback;
+        $is_rollback++ if $fargs{-tx_action} &&
+            $fargs{-tx_action} eq 'rollback';
 
         my $step;
-        my $i;
+        my $i = 0;
       STEP:
-        for $i (1..@$steps) {
+        while ($i < @$steps) {
+            $i++;
             $step = $steps->[$i-1];
             undef $res;
             {
@@ -313,8 +316,8 @@ sub gen_undoable_func {
                 }
             }
             if ($res && $res->[0] != 200 && $res->[0] != 304) {
-                $res = [500, "Step #$i/".scalar(@$steps).
-                            ": $res->[0] - $res->[1]"];
+                $res = [500, ($is_rollback ? "rollback ": "").
+                        "step #$i/".scalar(@$steps). ": $res->[0] - $res->[1]"];
                 last STEP;
             }
         } # step
@@ -322,8 +325,9 @@ sub gen_undoable_func {
         my $res0; # store failed res before rollback
 
         if ($res && $res->[0] != 200 && $res->[0] != 304) {
-            $log->warnf("Step failed: %s, rolling back ...", $res);
-            if ($tx) {
+            $log->warnf("Step failed: %s%s", $res,
+                        $is_rollback ? "" : ", rolling back ...");
+            if ($tx && !$is_rollback) {
                 my $rbres = $tx->rollback;
                 if ($rbres->[0] != 200) {
                     return [532, "Can't rollback: $rbres->[0] - $rbres->[1] ".
@@ -376,7 +380,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.02
+version 0.03
 
 =head1 SYNOPSIS
 
@@ -393,8 +397,15 @@ L<Rinci::function::Undo>, L<Rinci::function::Transaction>, L<Rinci>
 
 L<Setup>.
 
+=head1 DESCRIPTION
+
+
+This module has L<Rinci> metadata.
+
 =head1 FUNCTIONS
 
+
+None are exported by default, but they are exportable.
 
 =head2 gen_undoable_func(%args) -> [status, msg, result, meta]
 
@@ -459,7 +470,7 @@ arguments. This should later be mostly unnecessary when Perinci::Sub::Wrapper
 already integrates with Data::Sah to generate argument-checking code from
 schema.
 
-Code is given arguments as a B<hashref> to be able to modify them (e.g. set
+Code is given arguments as a I<hashref> to be able to modify them (e.g. set
 defaults, etc) and should return an enveloped response. If response is not a
 success one, it will be used as the function's response.
 
@@ -487,7 +498,7 @@ Valid values include {use=>1} (meaning function can use transaction and will
 utilize it if given '-tx' special argument), {req=>1} (meaning function always
 require '-tx' and will return error response if not given it). Otherwise
 function will not use transaction, undo data will be passed to function via
-'-undoB<data' special argument and returned by function in 'undo>data' result
+'-undoI<data' special argument and returned by function in 'undo>data' result
 metadata.
 
 =back

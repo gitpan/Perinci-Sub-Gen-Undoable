@@ -1,5 +1,17 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.03     2012-06-21
+
+         [FIXES]
+
+         - When calling record_call(), record original function arguments before
+           being potentially modified by hook_check_args.
+
+         - Grok if function is being called by txm during rollback (-tx_action
+           is set to 'rollback'). Don't do our own rollback again under this
+           condition.
+
+
 0.02     2012-06-07
 
          Fix a couple of typos.
