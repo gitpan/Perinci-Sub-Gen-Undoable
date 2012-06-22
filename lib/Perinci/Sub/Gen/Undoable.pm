@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.04'; # VERSION
+our $VERSION = '0.05'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -242,7 +242,6 @@ sub gen_undoable_func {
                 $steps = $fargs{-undo_data}
                     or return [400, "Please supply -undo_data for redo"];
             }
-            return [501, "Not yet implemented"];
         } else {
             $res = $gen_args{build_steps}->(%fargs);
             return $res unless $res->[0] == 200;
@@ -381,7 +380,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.04
+version 0.05
 
 =head1 SYNOPSIS
 

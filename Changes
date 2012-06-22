@@ -1,13 +1,20 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
-0.04     2012-06-21
+0.05     2012-06-21 (SHARYANTO)
 
          [FIXES]
 
-         - Fix setting function result during rollback
+         - Remove old code in 'redo' part.
 
 
-0.03     2012-06-21
+0.04     2012-06-21 (SHARYANTO)
+
+         [FIXES]
+
+         - Fix setting function result during rollback.
+
+
+0.03     2012-06-21 (SHARYANTO)
 
          [FIXES]
 
@@ -19,12 +26,12 @@ Revision history for Perinci-Sub-Gen-Undoable
            condition.
 
 
-0.02     2012-06-07
+0.02     2012-06-07 (SHARYANTO)
 
          Fix a couple of typos.
 
 
-0.01     2012-06-06
+0.01     2012-06-06 (SHARYANTO)
 
          First release. Setup::File::Symlink works using this module. Minimal
          tests. The transactional part has not been tested (waiting for
