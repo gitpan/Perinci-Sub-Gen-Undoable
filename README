@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.05
+    version 0.06
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -57,13 +57,12 @@ FUNCTIONS
 
         Code to build steps.
 
-        This is the code that should build the steps. Code will be given the
-        whole function's arguments and should return an enveloped response.
-        If response is not a success one, it will be used as the function's
-        response. Otherwise, code should return the steps (an array). By
-        convention, each step should be an array like this: [NAME, ...]
-        where the first element is the step name and the rest are step
-        arguments.
+        This is the code that should build the steps. Code will be given
+        (\%args) and should return an enveloped response. If response is not
+        a success one, it will be used as the function's response.
+        Otherwise, code should return the steps (an array). By convention,
+        each step should be an array like this: [NAME, ...] where the first
+        element is the step name and the rest are step arguments.
 
     *   description* => *śtr*
 
@@ -78,10 +77,10 @@ FUNCTIONS
         Perinci::Sub::Wrapper already integrates with Data::Sah to generate
         argument-checking code from schema.
 
-        Code is given arguments as a *hashref* to be able to modify them
-        (e.g. set defaults, etc) and should return an enveloped response. If
-        response is not a success one, it will be used as the function's
-        response.
+        Code is given (\%args) and should return an enveloped response. You
+        can modify the args (e.g. set defaults, etc) and it will be carried
+        on to the other steps like 'build_steps'. If response is not a
+        success one, it will be used as the function's response.
 
     *   name* => *str*
 

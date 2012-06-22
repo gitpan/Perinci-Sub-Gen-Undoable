@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.05'; # VERSION
+our $VERSION = '0.06'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -86,12 +86,11 @@ _
             req     => 1,
             description => <<'_',
 
-This is the code that should build the steps. Code will be given the whole
-function's arguments and should return an enveloped response. If response is not
-a success one, it will be used as the function's response. Otherwise, code
-should return the steps (an array). By convention, each step should be an array
-like this: [NAME, ...] where the first element is the step name and the rest are
-step arguments.
+This is the code that should build the steps. Code will be given (\%args) and
+should return an enveloped response. If response is not a success one, it will
+be used as the function's response. Otherwise, code should return the steps (an
+array). By convention, each step should be an array like this: [NAME, ...] where
+the first element is the step name and the rest are step arguments.
 
 _
         },
@@ -105,9 +104,10 @@ arguments. This should later be mostly unnecessary when Perinci::Sub::Wrapper
 already integrates with Data::Sah to generate argument-checking code from
 schema.
 
-Code is given arguments as a *hashref* to be able to modify them (e.g. set
-defaults, etc) and should return an enveloped response. If response is not a
-success one, it will be used as the function's response.
+Code is given (\%args) and should return an enveloped response. You can modify
+the args (e.g. set defaults, etc) and it will be carried on to the other steps
+like 'build_steps'. If response is not a success one, it will be used as the
+function's response.
 
 _
         },
@@ -243,7 +243,7 @@ sub gen_undoable_func {
                     or return [400, "Please supply -undo_data for redo"];
             }
         } else {
-            $res = $gen_args{build_steps}->(%fargs);
+            $res = $gen_args{build_steps}->(\%fargs);
             return $res unless $res->[0] == 200;
             $steps = $res->[2];
             return [500, "BUG: build_steps didn't return an array: $steps"]
@@ -380,7 +380,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.05
+version 0.06
 
 =head1 SYNOPSIS
 
@@ -450,12 +450,11 @@ This is just like the metadata property 'args'.
 
 Code to build steps.
 
-This is the code that should build the steps. Code will be given the whole
-function's arguments and should return an enveloped response. If response is not
-a success one, it will be used as the function's response. Otherwise, code
-should return the steps (an array). By convention, each step should be an array
-like this: [NAME, ...] where the first element is the step name and the rest are
-step arguments.
+This is the code that should build the steps. Code will be given (\%args) and
+should return an enveloped response. If response is not a success one, it will
+be used as the function's response. Otherwise, code should return the steps (an
+array). By convention, each step should be an array like this: [NAME, ...] where
+the first element is the step name and the rest are step arguments.
 
 =item * B<description>* => I<śtr>
 
@@ -470,9 +469,10 @@ arguments. This should later be mostly unnecessary when Perinci::Sub::Wrapper
 already integrates with Data::Sah to generate argument-checking code from
 schema.
 
-Code is given arguments as a I<hashref> to be able to modify them (e.g. set
-defaults, etc) and should return an enveloped response. If response is not a
-success one, it will be used as the function's response.
+Code is given (\%args) and should return an enveloped response. You can modify
+the args (e.g. set defaults, etc) and it will be carried on to the other steps
+like 'build_steps'. If response is not a success one, it will be used as the
+function's response.
 
 =item * B<name>* => I<str>
 

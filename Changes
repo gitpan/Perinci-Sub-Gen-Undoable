@@ -1,5 +1,13 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.06     2012-06-22 (SHARYANTO)
+
+         [INCOMPATIBLE CHANGES]
+
+         - 'build_steps' is now passed \%args instead of %args, to make it
+           consistent with others. Sorry about this.
+
+
 0.05     2012-06-21 (SHARYANTO)
 
          [FIXES]
