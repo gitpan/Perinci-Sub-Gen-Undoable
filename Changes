@@ -1,5 +1,23 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.07     2012-06-23 (SHARYANTO)
+
+         There are a couple of incompatible changes. API is still in flux. Sorry
+         about this.
+
+         [INCOMPATIBLE CHANGES]
+
+         - 'hook_check_args' renamed to 'check_args' and no longer documented as
+           temporary.
+
+         - step's hooks 'gen_undo' and 'run' renamed to 'check' and 'fix',
+           respectively.
+
+         [ENHANCEMENTS]
+
+         - 'build_steps' can also be an array instead of code, for convenience.
+
+
 0.06     2012-06-22 (SHARYANTO)
 
          [INCOMPATIBLE CHANGES]

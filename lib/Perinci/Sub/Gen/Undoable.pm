@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.06'; # VERSION
+our $VERSION = '0.07'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -37,6 +37,33 @@ Some notes:
   wrapper (like Perinci::Sub::Wrapper) has this loop.
 
 For examples, see Setup::* Perl modules.
+
+Control flow:
+
+1. `check_args` hook is executed, if supplied. It should return enveloped
+   result. If response is not success, exit with this response.
+
+2. If `-undo_action` argument is `do`, `build_steps` hook is executed to get
+   list of steps (an arrayref). If `-undo_action` is `undo` or `redo`, steps is
+   retrieved either from transaction manager (`-tx_manager` argument) or passed
+   undo data (`-undo_data` argument).
+
+3. Execute the steps. First, step's `check` hook is executed. If it returns
+   undef, it means nothing needs to be done and we move on to the next step. If
+   it returns an arrayref (undo step), it means we need to record the undo step
+   first to transaction manager (if we are using transaction) or just collect
+   the step in an array (if not using transaction), and then execute the step's
+   `fix` hook. The hook should return an enveloped result. If response if not
+   success, we trigger the rollback mechanism (see point 4). Otherwise we move
+   on to the next step. After all the steps are executed successfully, we return
+   200 response.
+
+4. To rollback: if we are not using transaction, we get out of the loop in point
+   3) and enter a loop to execute the undo steps in backward order (which is
+   basically the same as point 3). If we are using transaction, we call
+   transaction manager's rollback() (which will also essentially do the same
+   kind of loop). If there is failure in the rollback steps, we just exit with
+   the last step's response.
 
 _
     args => {
@@ -82,32 +109,31 @@ _
         },
         build_steps => {
             summary => 'Code to build steps',
-            schema  => 'code*',
+            schema  => ['any*' => {of=>['code*', 'array*']}],
             req     => 1,
             description => <<'_',
 
 This is the code that should build the steps. Code will be given (\%args) and
-should return an enveloped response. If response is not a success one, it will
-be used as the function's response. Otherwise, code should return the steps (an
-array). By convention, each step should be an array like this: [NAME, ...] where
-the first element is the step name and the rest are step arguments.
+should return an enveloped response. If response is not a success one, function
+will exit with that response. Steps must be an array of steps, where each step
+is like this: [NAME, ...] (an array with step name as the first element and step
+argument(s) name, if any, in the rest of the elements).
 
 _
         },
-        hook_check_args => {
+        check_args => {
             summary => 'Code to check function\'s arguments',
             schema  => 'code*',
             description => <<'_',
 
-This is a (temporary?) hook to allow the generated function to check its
-arguments. This should later be mostly unnecessary when Perinci::Sub::Wrapper
-already integrates with Data::Sah to generate argument-checking code from
-schema.
+This is a hook to allow the generated function to check its arguments. This
+should later be mostly unnecessary when Perinci::Sub::Wrapper already integrates
+with Data::Sah to generate argument-checking code from schema.
 
-Code is given (\%args) and should return an enveloped response. You can modify
-the args (e.g. set defaults, etc) and it will be carried on to the other steps
-like 'build_steps'. If response is not a success one, it will be used as the
-function's response.
+Code is given (\%args), where you can modify the args (e.g. set defaults, etc)
+and it will be carried on to the other steps like 'build_steps'. Code should
+return enveloped result. If response is not a success one, it will be used as
+the function's response.
 
 _
         },
@@ -124,21 +150,20 @@ _
                             summary => 'Step description',
                             schema  => 'str*',
                         },
-                        gen_undo => {
-                            summary => 'Code to run the step',
+                        check => {
+                            summary => "Code to check step's state",
                             schema => 'code*',
                             req => 1,
                             description => <<'_',
 
 Code will be passed (\%args, $step) and is expected to return the undo step (an
-array). %args is arguments to function, and $step is step data previously built
-by build_steps. If undo step is not needed (since step is a no-op), step will
-not be performed.
+array) if a fix of state is necessary, or undef if fix is unnecessary. %args is
+arguments to function, and $step is step data previously built by `build_steps`.
 
 _
                         },
-                        run => {
-                            summary => 'Code to run the step',
+                        fix => {
+                            summary => "Code to fix the step's state",
                             schema => 'code*',
                             req => 1,
                             description => <<'_',
@@ -146,7 +171,7 @@ _
 Code will be passed (\%args, $step, $undo), and is expected to return an
 enveloped result. %args is arguments to function, $step is step data previously
 built by build_steps, and $undo is undo step data previously returned by step's
-gen_undo.
+`check` hook.
 
 _
                         },
@@ -192,8 +217,8 @@ sub gen_undoable_func {
         my $res;
 
         my $tx;
-        if ($gen_args{hook_check_args}) {
-            $res = $gen_args{hook_check_args}->(\%fargs);
+        if ($gen_args{check_args}) {
+            $res = $gen_args{check_args}->(\%fargs);
             return [400, "Error in arguments: $res->[0] - $res->[1]"]
                 unless $res->[0] == 200;
         }
@@ -243,9 +268,15 @@ sub gen_undoable_func {
                     or return [400, "Please supply -undo_data for redo"];
             }
         } else {
-            $res = $gen_args{build_steps}->(\%fargs);
-            return $res unless $res->[0] == 200;
-            $steps = $res->[2];
+            my $bs = $gen_args{build_steps};
+
+            if (ref($bs) eq 'CODE') {
+                $res = $bs->(\%fargs);
+                return $res unless $res->[0] == 200;
+                $steps = $res->[2];
+            } else {
+                $steps = [@$bs];
+            }
             return [500, "BUG: build_steps didn't return an array: $steps"]
                 unless ref($steps) eq 'ARRAY';
             if ($gen_args{trash_dir}) {
@@ -288,16 +319,18 @@ sub gen_undoable_func {
                     $res = [500, "Not an array ($step)"];
                     last;
                 }
-                my $sspec = $gen_args{steps}{$step->[0]};
-                if (!$sspec) {
+                my $stepspec = $gen_args{steps}{$step->[0]};
+                if (!$stepspec) {
                     $res = [500, "Unknown step '$step->[0]'"];
                     last;
                 }
                 $log->tracef("%sstep #%d/%d: %s",
                              $is_rollback ? "rollback " : "",
                              $i, scalar(@$steps), $step);
-                my $undo_step = $sspec->{gen_undo}->(\%fargs, $step);
+                my $undo_step = $stepspec->{check}->(\%fargs, $step);
                 if ($undo_step) {
+                    # 'check' returns an undo step, this means we need
+                    # to run the 'fix' hook
                     if ($tx) {
                         my $meth = $undo_action eq 'undo' ?
                             'record_redo_step' : 'record_undo_step';
@@ -309,9 +342,9 @@ sub gen_undoable_func {
                         }
                     }
                     unshift @$undo_steps, $undo_step;
-                    $res = $sspec->{run}->(\%fargs, $step, $undo_step);
+                    $res = $stepspec->{fix}->(\%fargs, $step, $undo_step);
                 } else {
-                    # step is a no-op
+                    # step is a no-op, nothing needs to be done
                 }
             }
             if ($res && $res->[0] != 200 && $res->[0] != 304) {
@@ -380,7 +413,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.06
+version 0.07
 
 =head1 SYNOPSIS
 
@@ -436,6 +469,53 @@ Though it generally should not die(), generated function might still die,
 
 For examples, see Setup::* Perl modules.
 
+Control flow:
+
+=over
+
+=item 1.
+
+C<check_args> hook is executed, if supplied. It should return enveloped
+   result. If response is not success, exit with this response.
+
+
+
+=item 1.
+
+If C<-undo_action> argument is C<do>, C<build_steps> hook is executed to get
+   list of steps (an arrayref). If C<-undo_action> is C<undo> or C<redo>, steps is
+   retrieved either from transaction manager (C<-tx_manager> argument) or passed
+   undo data (C<-undo_data> argument).
+
+
+
+=item 1.
+
+Execute the steps. First, step's C<check> hook is executed. If it returns
+   undef, it means nothing needs to be done and we move on to the next step. If
+   it returns an arrayref (undo step), it means we need to record the undo step
+   first to transaction manager (if we are using transaction) or just collect
+   the step in an array (if not using transaction), and then execute the step's
+   C<fix> hook. The hook should return an enveloped result. If response if not
+   success, we trigger the rollback mechanism (see point 4). Otherwise we move
+   on to the next step. After all the steps are executed successfully, we return
+   200 response.
+
+
+
+=item 1.
+
+To rollback: if we are not using transaction, we get out of the loop in point
+   3) and enter a loop to execute the undo steps in backward order (which is
+   basically the same as point 3). If we are using transaction, we call
+   transaction manager's rollback() (which will also essentially do the same
+   kind of loop). If there is failure in the rollback steps, we just exit with
+   the last step's response.
+
+
+
+=back
+
 Arguments ('*' denotes required arguments):
 
 =over 4
@@ -446,33 +526,32 @@ Specification for generated function's arguments.
 
 This is just like the metadata property 'args'.
 
-=item * B<build_steps>* => I<code>
+=item * B<build_steps>* => I<array|code>
 
 Code to build steps.
 
 This is the code that should build the steps. Code will be given (\%args) and
-should return an enveloped response. If response is not a success one, it will
-be used as the function's response. Otherwise, code should return the steps (an
-array). By convention, each step should be an array like this: [NAME, ...] where
-the first element is the step name and the rest are step arguments.
+should return an enveloped response. If response is not a success one, function
+will exit with that response. Steps must be an array of steps, where each step
+is like this: [NAME, ...] (an array with step name as the first element and step
+argument(s) name, if any, in the rest of the elements).
+
+=item * B<check_args>* => I<code>
+
+Code to check function's arguments.
+
+This is a hook to allow the generated function to check its arguments. This
+should later be mostly unnecessary when Perinci::Sub::Wrapper already integrates
+with Data::Sah to generate argument-checking code from schema.
+
+Code is given (\%args), where you can modify the args (e.g. set defaults, etc)
+and it will be carried on to the other steps like 'build_steps'. Code should
+return enveloped result. If response is not a success one, it will be used as
+the function's response.
 
 =item * B<description>* => I<śtr>
 
 Generated function's description.
-
-=item * B<hook_check_args>* => I<code>
-
-Code to check function's arguments.
-
-This is a (temporary?) hook to allow the generated function to check its
-arguments. This should later be mostly unnecessary when Perinci::Sub::Wrapper
-already integrates with Data::Sah to generate argument-checking code from
-schema.
-
-Code is given (\%args) and should return an enveloped response. You can modify
-the args (e.g. set defaults, etc) and it will be carried on to the other steps
-like 'build_steps'. If response is not a success one, it will be used as the
-function's response.
 
 =item * B<name>* => I<str>
 

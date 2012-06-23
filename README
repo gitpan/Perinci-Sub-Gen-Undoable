@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.06
+    version 0.07
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -45,6 +45,36 @@ FUNCTIONS
 
     For examples, see Setup::* Perl modules.
 
+    Control flow:
+
+    1.  "check_args" hook is executed, if supplied. It should return
+        enveloped result. If response is not success, exit with this
+        response.
+
+    1.  If "-undo_action" argument is "do", "build_steps" hook is executed
+        to get list of steps (an arrayref). If "-undo_action" is "undo" or
+        "redo", steps is retrieved either from transaction manager
+        ("-tx_manager" argument) or passed undo data ("-undo_data"
+        argument).
+
+    1.  Execute the steps. First, step's "check" hook is executed. If it
+        returns undef, it means nothing needs to be done and we move on to
+        the next step. If it returns an arrayref (undo step), it means we
+        need to record the undo step first to transaction manager (if we are
+        using transaction) or just collect the step in an array (if not
+        using transaction), and then execute the step's "fix" hook. The hook
+        should return an enveloped result. If response if not success, we
+        trigger the rollback mechanism (see point 4). Otherwise we move on
+        to the next step. After all the steps are executed successfully, we
+        return 200 response.
+
+    1.  To rollback: if we are not using transaction, we get out of the loop
+        in point 3) and enter a loop to execute the undo steps in backward
+        order (which is basically the same as point 3). If we are using
+        transaction, we call transaction manager's rollback() (which will
+        also essentially do the same kind of loop). If there is failure in
+        the rollback steps, we just exit with the last step's response.
+
     Arguments ('*' denotes required arguments):
 
     *   args => *hash* (default: {})
@@ -53,34 +83,34 @@ FUNCTIONS
 
         This is just like the metadata property 'args'.
 
-    *   build_steps* => *code*
+    *   build_steps* => *array|code*
 
         Code to build steps.
 
         This is the code that should build the steps. Code will be given
         (\%args) and should return an enveloped response. If response is not
-        a success one, it will be used as the function's response.
-        Otherwise, code should return the steps (an array). By convention,
-        each step should be an array like this: [NAME, ...] where the first
-        element is the step name and the rest are step arguments.
+        a success one, function will exit with that response. Steps must be
+        an array of steps, where each step is like this: [NAME, ...] (an
+        array with step name as the first element and step argument(s) name,
+        if any, in the rest of the elements).
+
+    *   check_args* => *code*
+
+        Code to check function's arguments.
+
+        This is a hook to allow the generated function to check its
+        arguments. This should later be mostly unnecessary when
+        Perinci::Sub::Wrapper already integrates with Data::Sah to generate
+        argument-checking code from schema.
+
+        Code is given (\%args), where you can modify the args (e.g. set
+        defaults, etc) and it will be carried on to the other steps like
+        'build_steps'. Code should return enveloped result. If response is
+        not a success one, it will be used as the function's response.
 
     *   description* => *śtr*
 
         Generated function's description.
-
-    *   hook_check_args* => *code*
-
-        Code to check function's arguments.
-
-        This is a (temporary?) hook to allow the generated function to check
-        its arguments. This should later be mostly unnecessary when
-        Perinci::Sub::Wrapper already integrates with Data::Sah to generate
-        argument-checking code from schema.
-
-        Code is given (\%args) and should return an enveloped response. You
-        can modify the args (e.g. set defaults, etc) and it will be carried
-        on to the other steps like 'build_steps'. If response is not a
-        success one, it will be used as the function's response.
 
     *   name* => *str*
 
@@ -127,4 +157,17 @@ COPYRIGHT AND LICENSE
 
     This is free software; you can redistribute it and/or modify it under
     the same terms as the Perl 5 programming language system itself.
+
+POD ERRORS
+    Hey! The above document had some coding errors, which are explained
+    below:
+
+    Around line 483:
+        You have '=item 1' instead of the expected '=item 2'
+
+    Around line 492:
+        You have '=item 1' instead of the expected '=item 3'
+
+    Around line 506:
+        You have '=item 1' instead of the expected '=item 4'
 
