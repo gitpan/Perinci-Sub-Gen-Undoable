@@ -1,5 +1,14 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.08     2012-06-26 (SHARYANTO)
+
+         [ENHANCEMENTS]
+
+         - step's 'check' hook can also be a hash, for convenience.
+
+         - Add step's 'check_or_fix'.
+
+
 0.07     2012-06-23 (SHARYANTO)
 
          There are a couple of incompatible changes. API is still in flux. Sorry

@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.07'; # VERSION
+our $VERSION = '0.08'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -152,26 +152,42 @@ _
                         },
                         check => {
                             summary => "Code to check step's state",
-                            schema => 'code*',
-                            req => 1,
+                            schema => ['any*' => {of=>['code*','array*']}],
+                            req => 1, # XXX not if check_of_fix is specified
                             description => <<'_',
 
 Code will be passed (\%args, $step) and is expected to return the undo step (an
 array) if a fix of state is necessary, or undef if fix is unnecessary. %args is
 arguments to function, and $step is step data previously built by `build_steps`.
 
+For convenience, `check` can also be an array (to always return an undo step).
+
 _
                         },
                         fix => {
                             summary => "Code to fix the step's state",
                             schema => 'code*',
-                            req => 1,
+                            req => 1, # XXX not if check_of_fix is specified
                             description => <<'_',
 
 Code will be passed (\%args, $step, $undo), and is expected to return an
 enveloped result. %args is arguments to function, $step is step data previously
 built by build_steps, and $undo is undo step data previously returned by step's
 `check` hook.
+
+_
+                        },
+                        check_or_fix => {
+                            summary => "Combined alternative for check+fix",
+                            schema => 'code*',
+                            req => 0, # XXX req if check/fix is not specified
+                            description => <<'_',
+
+This is an alternative to specifying check and fix separately, and can be more
+convenient for some if there are some shared code between 'check' and 'fix'.
+
+Code will be passed ($which, \%args, $step, $undo) where $which is either
+'check' or 'fix'.
 
 _
                         },
@@ -327,7 +343,18 @@ sub gen_undoable_func {
                 $log->tracef("%sstep #%d/%d: %s",
                              $is_rollback ? "rollback " : "",
                              $i, scalar(@$steps), $step);
-                my $undo_step = $stepspec->{check}->(\%fargs, $step);
+                my $cof = $stepspec->{check_or_fix};
+                my $undo_step;
+                if ($cof) {
+                    $undo_step = $cof->('check', \%fargs, $step);
+                } else {
+                    my $chk = $stepspec->{check};
+                    if (ref($chk) eq 'CODE') {
+                        $undo_step = $chk->(\%fargs, $step);
+                    } else {
+                        $undo_step = [@$chk];
+                    }
+                }
                 if ($undo_step) {
                     # 'check' returns an undo step, this means we need
                     # to run the 'fix' hook
@@ -342,7 +369,11 @@ sub gen_undoable_func {
                         }
                     }
                     unshift @$undo_steps, $undo_step;
-                    $res = $stepspec->{fix}->(\%fargs, $step, $undo_step);
+                    if ($cof) {
+                        $res = $cof->('fix', \%fargs, $step, $undo_step);
+                    } else {
+                        $res = $stepspec->{fix}->(\%fargs, $step, $undo_step);
+                    }
                 } else {
                     # step is a no-op, nothing needs to be done
                 }
@@ -387,8 +418,12 @@ sub gen_undoable_func {
 
         my $meta = {};
         $meta->{undo_data} = $undo_steps if $save_undo;
-        $res = [@$steps ? 200 : 304, @$steps ? "OK" : "Nothing done", undef,
-                $meta];
+        if (@$undo_steps) {
+            $res = [200, "OK", undef, $meta];
+        } else {
+            $res = [304, "Nothing done", undef, $meta];
+        }
+
         # doesn't always get to here, so for consistency we don't log
         #$log->tracef("<- %s() = %s", $gen_args{name}, [$res->[0], $res->[1]]);
         $res;
@@ -413,7 +448,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.07
+version 0.08
 
 =head1 SYNOPSIS
 

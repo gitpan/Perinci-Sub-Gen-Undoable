@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.07
+    version 0.08
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -162,12 +162,12 @@ POD ERRORS
     Hey! The above document had some coding errors, which are explained
     below:
 
-    Around line 483:
+    Around line 518:
         You have '=item 1' instead of the expected '=item 2'
 
-    Around line 492:
+    Around line 527:
         You have '=item 1' instead of the expected '=item 3'
 
-    Around line 506:
+    Around line 541:
         You have '=item 1' instead of the expected '=item 4'
 
