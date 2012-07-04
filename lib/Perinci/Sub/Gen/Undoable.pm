@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.11'; # VERSION
+our $VERSION = '0.12'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -208,16 +208,14 @@ _
 sub gen_undoable_func {
     my %gen_args = @_;
 
-    return [400, "Please specify name"]        unless $gen_args{name};
-    #return [400, "Invalid name, please use qualified name, e.g. Foo::sub"]
-    #    unless $gen_args{name} =~ /(.+)::(.+)/;
+    my $name = $gen_args{name};
+    return [400, "Please specify name"]        unless $name;
     return [400, "Please specify steps"]       unless $gen_args{steps};
     return [400, "Please specify build_steps"] unless $gen_args{build_steps};
     my $g_tx = $gen_args{tx} || {use=>1};
     return [400, "tx must be a hash"]          unless ref($g_tx) eq 'HASH';
 
     my @caller = caller;
-    my $name = $gen_args{name};
     $name = "$caller[0]::$name" unless $name =~ /(.+)::(.+)/;
 
     my $meta = {
@@ -238,7 +236,7 @@ sub gen_undoable_func {
 
     my $code = sub {
         my %fargs = @_;
-        $log->tracef("-> %s(%s)", $gen_args{name},
+        $log->tracef("-> %s(%s)", $name,
                      { map {$_ => (/^(-tx_manager|-undo_data)$/ ? "..." :
                                        $fargs{$_})} keys %fargs });
         my $res;
@@ -259,7 +257,7 @@ sub gen_undoable_func {
         return [400, "Please supply -tx_call_id on undo/redo (with tx)"]
             if !$cid && $tx && $undo_action =~ /\A(un|re)do\z/;
         if (!$cid && $tx) {
-            $res = $tx->record_call(f=>$gen_args{name}, args=>{@_});
+            $res = $tx->record_call(f=>$name, args=>{@_});
             return $res unless $res->[0] == 200;
             $cid = $res->[2];
         }
@@ -437,12 +435,12 @@ sub gen_undoable_func {
         }
 
         # doesn't always get to here, so for consistency we don't log
-        #$log->tracef("<- %s() = %s", $gen_args{name}, [$res->[0], $res->[1]]);
+        #$log->tracef("<- %s() = %s", $name, [$res->[0], $res->[1]]);
         $res;
     };
 
     no strict 'refs';
-    *{ $gen_args{name} } = $code;
+    *{ $name } = $code;
 
     [200, "OK", {code=>$code, meta=>$meta}];
 }
@@ -460,7 +458,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.11
+version 0.12
 
 =head1 SYNOPSIS
 

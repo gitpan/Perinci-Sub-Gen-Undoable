@@ -1,5 +1,10 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.12     2012-07-04 (SHARYANTO)
+
+         Previous release new feature didn't work. Try again.
+
+
 0.11     2012-07-04 (SHARYANTO)
 
          Allow unqualified name, will use caller's package to qualify.
