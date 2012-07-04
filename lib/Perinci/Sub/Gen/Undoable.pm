@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.12'; # VERSION
+our $VERSION = '0.13'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -65,6 +65,14 @@ Control flow:
    kind of loop). If there is failure in the rollback steps, we just exit with
    the last step's response.
 
+Additional notes:
+
+- Generated function returns result as well as result metadata (3rd and 4th
+  element of envelope array). Currently each step's `fix` hook is passed these
+  two thus given the opportunity to fill/change them. Result is initially {}
+  like result metadata. If result is still {} at the end of executing steps,
+  `undef` is used instead.
+
 _
     args => {
         name => {
@@ -111,6 +119,17 @@ _
             description => <<'_',
 
 This is just like the metadata property 'args'.
+
+_
+        },
+        install => {
+            summary => 'Whether function and meta should be installed',
+            schema => [bool => {default=>1}],
+            description => <<'_',
+
+By default, generated function will be installed to the specified (or caller's)
+package, as well as its generated metadata into %SPEC. Set this argument to
+false to skip installing.
 
 _
         },
@@ -177,10 +196,12 @@ _
                             req => 1, # XXX not if check_of_fix is specified
                             description => <<'_',
 
-Code will be passed (\%args, $step, $undo), and is expected to return an
-enveloped result. %args is arguments to function, $step is step data previously
-built by build_steps, and $undo is undo step data previously returned by step's
-`check` hook.
+Code will be passed (\%args, $step, $undo, $r, $rmeta), and is expected to
+return an enveloped result. %args is arguments to function, $step is step data
+previously built by build_steps, and $undo is undo step data previously returned
+by step's `check` hook. $r is the result hashref that will be returned by the
+generated function. $rmeta is the result metadata hashref that will be returned
+by the generated function.
 
 _
                         },
@@ -323,6 +344,9 @@ sub gen_undoable_func {
             return [200, "Dry run"];
         }
 
+        my $r     = {};
+        my $rmeta = {};
+
         # perform the steps
 
         my $undo_steps = [];
@@ -380,9 +404,11 @@ sub gen_undoable_func {
                     }
                     unshift @$undo_steps, $undo_step;
                     if ($cof) {
-                        $res = $cof->('fix', \%fargs, $step, $undo_step);
+                        $res = $cof->('fix', \%fargs, $step, $undo_step,
+                                      $r, $rmeta);
                     } else {
-                        $res = $stepspec->{fix}->(\%fargs, $step, $undo_step);
+                        $res = $stepspec->{fix}->(\%fargs, $step, $undo_step,
+                                                  $r, $rmeta);
                     }
                 } else {
                     # step is a no-op, nothing needs to be done
@@ -426,12 +452,12 @@ sub gen_undoable_func {
 
         return [$res0->[0], "$res0->[1] (rolled back, notx)"] if $is_rollback;
 
-        my $meta = {};
-        $meta->{undo_data} = $undo_steps if $save_undo;
+        $rmeta->{undo_data} = $undo_steps if $save_undo;
+        $r = undef unless keys %$r;
         if (@$undo_steps) {
-            $res = [200, "OK", undef, $meta];
+            $res = [200, "OK", $r, $rmeta];
         } else {
-            $res = [304, "Nothing done", undef, $meta];
+            $res = [304, "Nothing done", $r, $rmeta];
         }
 
         # doesn't always get to here, so for consistency we don't log
@@ -439,8 +465,12 @@ sub gen_undoable_func {
         $res;
     };
 
-    no strict 'refs';
-    *{ $name } = $code;
+    if ($gen_args{install} // 1) {
+        no strict 'refs';
+        *{ $name } = $code;
+        my ($pkg, $uname) = $name =~ /(.+)::(.+)/;
+        ${$pkg . "::SPEC"}{$uname} = $meta;
+    }
 
     [200, "OK", {code=>$code, meta=>$meta}];
 }
@@ -458,7 +488,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.12
+version 0.13
 
 =head1 SYNOPSIS
 
@@ -561,6 +591,21 @@ To rollback: if we are not using transaction, we get out of the loop in point
 
 =back
 
+Additional notes:
+
+=over
+
+=item *
+
+Generated function returns result as well as result metadata (3rd and 4th
+  element of envelope array). Currently each step's C<fix> hook is passed these
+  two thus given the opportunity to fill/change them. Result is initially {}
+  like result metadata. If result is still {} at the end of executing steps,
+  C<undef> is used instead.
+
+
+=back
+
 Arguments ('*' denotes required arguments):
 
 =over 4
@@ -597,6 +642,14 @@ the function's response.
 =item * B<description>* => I<śtr>
 
 Generated function's description.
+
+=item * B<install> => I<bool> (default: 1)
+
+Whether function and meta should be installed.
+
+By default, generated function will be installed to the specified (or caller's)
+package, as well as its generated metadata into %SPEC. Set this argument to
+false to skip installing.
 
 =item * B<name>* => I<str>
 

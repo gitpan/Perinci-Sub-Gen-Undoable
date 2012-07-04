@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.12
+    version 0.13
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -75,6 +75,14 @@ FUNCTIONS
         also essentially do the same kind of loop). If there is failure in
         the rollback steps, we just exit with the last step's response.
 
+    Additional notes:
+
+    *   Generated function returns result as well as result metadata (3rd
+        and 4th element of envelope array). Currently each step's "fix" hook
+        is passed these two thus given the opportunity to fill/change them.
+        Result is initially {} like result metadata. If result is still {}
+        at the end of executing steps, "undef" is used instead.
+
     Arguments ('*' denotes required arguments):
 
     *   args => *hash* (default: {})
@@ -111,6 +119,14 @@ FUNCTIONS
     *   description* => *śtr*
 
         Generated function's description.
+
+    *   install => *bool* (default: 1)
+
+        Whether function and meta should be installed.
+
+        By default, generated function will be installed to the specified
+        (or caller's) package, as well as its generated metadata into %SPEC.
+        Set this argument to false to skip installing.
 
     *   name* => *str*
 
@@ -166,12 +182,12 @@ POD ERRORS
     Hey! The above document had some coding errors, which are explained
     below:
 
-    Around line 528:
+    Around line 558:
         You have '=item 1' instead of the expected '=item 2'
 
-    Around line 537:
+    Around line 567:
         You have '=item 1' instead of the expected '=item 3'
 
-    Around line 551:
+    Around line 581:
         You have '=item 1' instead of the expected '=item 4'
 

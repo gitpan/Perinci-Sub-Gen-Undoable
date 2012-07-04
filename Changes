@@ -1,5 +1,16 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.13     2012-07-04 (SHARYANTO)
+
+         [ENHANCEMENTS]
+
+         - Pass result and result metadata to step's 'fix' routines to allow
+           them to be set/changed.
+
+         - Add `install` argument, if set to true then will install the function
+           as well as the meta into target package.
+
+
 0.12     2012-07-04 (SHARYANTO)
 
          Previous release new feature didn't work. Try again.
