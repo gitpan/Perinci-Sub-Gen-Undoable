@@ -1,5 +1,10 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.10     2012-07-04 (SHARYANTO)
+
+         Interpret 304 status (aside from 200) from step's check as success.
+
+
 0.09     2012-07-04 (SHARYANTO)
 
          Sorry, another incompatible change. Hopefully no more in the near

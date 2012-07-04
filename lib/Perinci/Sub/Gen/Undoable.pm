@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.09'; # VERSION
+our $VERSION = '0.10'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -350,7 +350,7 @@ sub gen_undoable_func {
                 } else {
                     $cres = $stepspec->{check}->(\%fargs, $step);
                 }
-                if ($cres->[0] != 200) {
+                if ($cres->[0] != 200 && $cres->[0] != 304) {
                     $res = [$cres->[0], "Can't check: $cres->[1]"];
                     last;
                 }
@@ -449,7 +449,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.09
+version 0.10
 
 =head1 SYNOPSIS
 
