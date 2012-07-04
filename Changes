@@ -1,10 +1,20 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.09     2012-07-04 (SHARYANTO)
+
+         Sorry, another incompatible change. Hopefully no more in the near
+         future.
+
+         [INCOMPATIBLE CHANGES]
+
+         - step's 'check' should return enveloped result.
+
+
 0.08     2012-06-26 (SHARYANTO)
 
          [ENHANCEMENTS]
 
-         - step's 'check' hook can also be a hash, for convenience.
+         - step's 'check' hook can also be an arrayref, for convenience.
 
          - Add step's 'check_or_fix'.
 

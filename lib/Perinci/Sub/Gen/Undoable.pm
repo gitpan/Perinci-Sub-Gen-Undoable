@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.08'; # VERSION
+our $VERSION = '0.09'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -156,11 +156,11 @@ _
                             req => 1, # XXX not if check_of_fix is specified
                             description => <<'_',
 
-Code will be passed (\%args, $step) and is expected to return the undo step (an
-array) if a fix of state is necessary, or undef if fix is unnecessary. %args is
-arguments to function, and $step is step data previously built by `build_steps`.
-
-For convenience, `check` can also be an array (to always return an undo step).
+Code will be passed (\%args, $step) and is expected to return an enveloped
+result. If checking is success, it should return status 200 and result the undo
+step (an array) if a fix of state is necessary, or undef if fix is unnecessary.
+%args is arguments to function, and $step is step data previously built by
+`build_steps`.
 
 _
                         },
@@ -344,17 +344,18 @@ sub gen_undoable_func {
                              $is_rollback ? "rollback " : "",
                              $i, scalar(@$steps), $step);
                 my $cof = $stepspec->{check_or_fix};
-                my $undo_step;
+                my ($cres, $undo_step);
                 if ($cof) {
-                    $undo_step = $cof->('check', \%fargs, $step);
+                    $cres = $cof->('check', \%fargs, $step);
                 } else {
-                    my $chk = $stepspec->{check};
-                    if (ref($chk) eq 'CODE') {
-                        $undo_step = $chk->(\%fargs, $step);
-                    } else {
-                        $undo_step = [@$chk];
-                    }
+                    $cres = $stepspec->{check}->(\%fargs, $step);
                 }
+                if ($cres->[0] != 200) {
+                    $res = [$cres->[0], "Can't check: $cres->[1]"];
+                    last;
+                }
+                $undo_step = $cres->[2];
+
                 if ($undo_step) {
                     # 'check' returns an undo step, this means we need
                     # to run the 'fix' hook
@@ -448,7 +449,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.08
+version 0.09
 
 =head1 SYNOPSIS
 
