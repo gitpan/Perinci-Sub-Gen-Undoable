@@ -7,7 +7,7 @@ use Log::Any '$log';
 
 use Scalar::Util qw(blessed);
 
-our $VERSION = '0.10'; # VERSION
+our $VERSION = '0.11'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -68,9 +68,16 @@ Control flow:
 _
     args => {
         name => {
-            summary => 'Fully qualified function name',
+            summary => 'Function name',
             schema  => 'str*',
             req => 1,
+            description => <<'_',
+
+Should be fully qualified, e.g. Foo::Bar::func, or caller's package will be
+used. Qualified name is required to install the generated function into the
+right package.
+
+_
         },
         summary => {
             summary => 'Generated function\'s summary',
@@ -202,12 +209,16 @@ sub gen_undoable_func {
     my %gen_args = @_;
 
     return [400, "Please specify name"]        unless $gen_args{name};
-    return [400, "Invalid name, please use qualified name, e.g. Foo::sub"]
-        unless $gen_args{name} =~ /(.+)::(.+)/;
+    #return [400, "Invalid name, please use qualified name, e.g. Foo::sub"]
+    #    unless $gen_args{name} =~ /(.+)::(.+)/;
     return [400, "Please specify steps"]       unless $gen_args{steps};
     return [400, "Please specify build_steps"] unless $gen_args{build_steps};
     my $g_tx = $gen_args{tx} || {use=>1};
     return [400, "tx must be a hash"]          unless ref($g_tx) eq 'HASH';
+
+    my @caller = caller;
+    my $name = $gen_args{name};
+    $name = "$caller[0]::$name" unless $name =~ /(.+)::(.+)/;
 
     my $meta = {
         v           => 1.1,
@@ -449,7 +460,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.10
+version 0.11
 
 =head1 SYNOPSIS
 
@@ -591,7 +602,11 @@ Generated function's description.
 
 =item * B<name>* => I<str>
 
-Fully qualified function name.
+Function name.
+
+Should be fully qualified, e.g. Foo::Bar::func, or caller's package will be
+used. Qualified name is required to install the generated function into the
+right package.
 
 =item * B<steps>* => I<hash>
 

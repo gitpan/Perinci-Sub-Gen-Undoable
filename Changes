@@ -1,5 +1,10 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.11     2012-07-04 (SHARYANTO)
+
+         Allow unqualified name, will use caller's package to qualify.
+
+
 0.10     2012-07-04 (SHARYANTO)
 
          Interpret 304 status (aside from 200) from step's check as success.
@@ -12,7 +17,8 @@ Revision history for Perinci-Sub-Gen-Undoable
 
          [INCOMPATIBLE CHANGES]
 
-         - step's 'check' should return enveloped result.
+         - step's 'check' should return enveloped result, like step's 'fix'.
+           This is to simplify code that uses 'check_or_fix'.
 
 
 0.08     2012-06-26 (SHARYANTO)

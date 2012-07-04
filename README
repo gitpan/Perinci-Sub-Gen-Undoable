@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.10
+    version 0.11
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -114,7 +114,11 @@ FUNCTIONS
 
     *   name* => *str*
 
-        Fully qualified function name.
+        Function name.
+
+        Should be fully qualified, e.g. Foo::Bar::func, or caller's package
+        will be used. Qualified name is required to install the generated
+        function into the right package.
 
     *   steps* => *hash*
 
@@ -162,12 +166,12 @@ POD ERRORS
     Hey! The above document had some coding errors, which are explained
     below:
 
-    Around line 519:
+    Around line 530:
         You have '=item 1' instead of the expected '=item 2'
 
-    Around line 528:
+    Around line 539:
         You have '=item 1' instead of the expected '=item 3'
 
-    Around line 542:
+    Around line 553:
         You have '=item 1' instead of the expected '=item 4'
 
