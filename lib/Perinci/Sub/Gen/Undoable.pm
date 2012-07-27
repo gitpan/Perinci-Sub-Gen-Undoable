@@ -5,9 +5,12 @@ use strict;
 use warnings;
 use Log::Any '$log';
 
+use Perinci::Sub::Gen::common;
 use Scalar::Util qw(blessed);
+use SHARYANTO::Log::Util qw(@log_levels);
+use Text::sprintfn;
 
-our $VERSION = '0.13'; # VERSION
+our $VERSION = '0.14'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -75,26 +78,7 @@ Additional notes:
 
 _
     args => {
-        name => {
-            summary => 'Function name',
-            schema  => 'str*',
-            req => 1,
-            description => <<'_',
-
-Should be fully qualified, e.g. Foo::Bar::func, or caller's package will be
-used. Qualified name is required to install the generated function into the
-right package.
-
-_
-        },
-        summary => {
-            summary => 'Generated function\'s summary',
-            schema  => 'str*',
-        },
-        description => {
-            summary => 'Generated function\'s description',
-            schema  => 'śtr*',
-        },
+        %Perinci::Sub::Gen::common::common_args,
         tx => {
             summary => 'Whether function is transactional',
             schema  => [hash => {default=>{}}],
@@ -122,17 +106,6 @@ This is just like the metadata property 'args'.
 
 _
         },
-        install => {
-            summary => 'Whether function and meta should be installed',
-            schema => [bool => {default=>1}],
-            description => <<'_',
-
-By default, generated function will be installed to the specified (or caller's)
-package, as well as its generated metadata into %SPEC. Set this argument to
-false to skip installing.
-
-_
-        },
         build_steps => {
             summary => 'Code to build steps',
             schema  => ['any*' => {of=>['code*', 'array*']}],
@@ -144,6 +117,8 @@ should return an enveloped response. If response is not a success one, function
 will exit with that response. Steps must be an array of steps, where each step
 is like this: [NAME, ...] (an array with step name as the first element and step
 argument(s) name, if any, in the rest of the elements).
+
+Each step must be defined in the `steps` argument.
 
 _
         },
@@ -165,6 +140,12 @@ _
         },
         steps => {
             summary => 'Steps specification',
+            description => <<'_',
+
+A step must at least have `check` and `fix` routines (or a single combined
+`check_and_fix` routine).
+
+_
             schema  => ['hash*', {
                 values_of => ['hash*' => {
                     keys => {
@@ -179,7 +160,7 @@ _
                         check => {
                             summary => "Code to check step's state",
                             schema => ['any*' => {of=>['code*','array*']}],
-                            req => 1, # XXX not if check_of_fix is specified
+                            req => 0, # XXX not if check_of_fix/call specified
                             description => <<'_',
 
 Code will be passed (\%args, $step) and is expected to return an enveloped
@@ -193,7 +174,7 @@ _
                         fix => {
                             summary => "Code to fix the step's state",
                             schema => 'code*',
-                            req => 1, # XXX not if check_of_fix is specified
+                            req => 0, # XXX not if check_of_fix/call specified
                             description => <<'_',
 
 Code will be passed (\%args, $step, $undo, $r, $rmeta), and is expected to
@@ -208,7 +189,7 @@ _
                         check_or_fix => {
                             summary => "Combined alternative for check+fix",
                             schema => 'code*',
-                            req => 0, # XXX req if check/fix is not specified
+                            req => 0, # XXX req if check/fix/call not specified
                             description => <<'_',
 
 This is an alternative to specifying check and fix separately, and can be more
@@ -219,25 +200,77 @@ Code will be passed ($which, \%args, $step, $undo) where $which is either
 
 _
                         },
+                        fix_log_message => {
+                            summary => 'String format to use to display '.
+                                'log message when performing step',
+                            schema => 'str*',
+                            description => <<'_',
+
+Format string that will be passed to Text::sprintfn::sprintfn to format the log
+message. Variables available to sprintfn() will be the function arguments, along
+with `_idx` (the step number, starts from 1), `_step` (the step name),
+`_step_arg0` .. `_step_argN` (step's arguments). For example:
+
+    "Deleting %(_step_arg0)s ..."
+
+If not supplied, the default log message is something like:
+
+    "Performing step #%(_idx)d: %(_step) ..."
+
+_
+                        },
                     },
                 }],
             }],
             req     => 1,
         },
-    },
+        log_level_fix_step => {
+            summary => 'At what level to show log messages when '.
+                'performing step',
+            schema  => [str => {default=>'info', in=>\@log_levels}],
+            description => <<'_',
+
+By default, it is at `info` (can be turned on using --verbose or VERBOSE=1 in
+command-line scripts). For example:
+
+    % VERBOSE=1 u-trash --dry-run *.bak
+    [info] (DRY) Trashing file1.bak ...
+    [info] (DRY) Trashing file2.bak ...
+    [info] (DRY) Trashing file3.bak ...
+
+However, if you feel it is too chatty, you can lower it to 'trace', for example.
+
+_
+        },
+    } # args,
 };
 sub gen_undoable_func {
     my %gen_args = @_;
 
-    my $name = $gen_args{name};
-    return [400, "Please specify name"]        unless $name;
+    # XXX schema
+    my ($uqname, $package);
+    my $fqname = $gen_args{name};
+    return [400, "Please specify name"] unless $fqname;
+    my @caller = caller;
+    if ($fqname =~ /(.+)::(.+)/) {
+        $package = $1;
+        $uqname  = $2;
+    } else {
+        $package = $gen_args{package} // $caller[0];
+        $uqname  = $fqname;
+        $fqname  = "$package\::$uqname";
+    }
     return [400, "Please specify steps"]       unless $gen_args{steps};
+    while (my ($sname, $stepspec) = each %{$gen_args{steps}}) {
+        return [400, "Invalid step name, please only use alphanums"]
+            unless $sname =~ /\A\w+(::\w+)*\z/;
+        return [400, "Please specify check+fix or check_or_fix only"]
+            unless $stepspec->{check} && $stepspec->{fix} xor
+                $stepspec->{check_or_fix};
+    }
     return [400, "Please specify build_steps"] unless $gen_args{build_steps};
     my $g_tx = $gen_args{tx} || {use=>1};
     return [400, "tx must be a hash"]          unless ref($g_tx) eq 'HASH';
-
-    my @caller = caller;
-    $name = "$caller[0]::$name" unless $name =~ /(.+)::(.+)/;
 
     my $meta = {
         v           => 1.1,
@@ -257,7 +290,7 @@ sub gen_undoable_func {
 
     my $code = sub {
         my %fargs = @_;
-        $log->tracef("-> %s(%s)", $name,
+        $log->tracef("-> %s(%s)", $fqname,
                      { map {$_ => (/^(-tx_manager|-undo_data)$/ ? "..." :
                                        $fargs{$_})} keys %fargs });
         my $res;
@@ -278,7 +311,7 @@ sub gen_undoable_func {
         return [400, "Please supply -tx_call_id on undo/redo (with tx)"]
             if !$cid && $tx && $undo_action =~ /\A(un|re)do\z/;
         if (!$cid && $tx) {
-            $res = $tx->record_call(f=>$name, args=>{@_});
+            $res = $tx->record_call(f=>$fqname, args=>{@_});
             return $res unless $res->[0] == 200;
             $cid = $res->[2];
         }
@@ -289,6 +322,11 @@ sub gen_undoable_func {
             $log->warnf("Transaction manager passed without -undo_action, ".
                             "might be a mistake?");
         }
+
+        # whether we are performing our own rollback (not using $tx)
+        my $is_rollback;
+        $is_rollback++ if $fargs{-tx_action} &&
+            $fargs{-tx_action} eq 'rollback';
 
         # build steps
 
@@ -340,9 +378,6 @@ sub gen_undoable_func {
             }
         }
         $log->tracef("steps: %s", $steps);
-        if ($dry_run && @$steps) {
-            return [200, "Dry run"];
-        }
 
         my $r     = {};
         my $rmeta = {};
@@ -350,11 +385,6 @@ sub gen_undoable_func {
         # perform the steps
 
         my $undo_steps = [];
-
-        # whether we are performing our own rollback (not using $tx)
-        my $is_rollback;
-        $is_rollback++ if $fargs{-tx_action} &&
-            $fargs{-tx_action} eq 'rollback';
 
         my $step;
         my $i = 0;
@@ -373,46 +403,70 @@ sub gen_undoable_func {
                     $res = [500, "Unknown step '$step->[0]'"];
                     last;
                 }
-                $log->tracef("%sstep #%d/%d: %s",
-                             $is_rollback ? "rollback " : "",
-                             $i, scalar(@$steps), $step);
-                my $cof = $stepspec->{check_or_fix};
-                my ($cres, $undo_step);
-                if ($cof) {
-                    $cres = $cof->('check', \%fargs, $step);
-                } else {
-                    $cres = $stepspec->{check}->(\%fargs, $step);
-                }
-                if ($cres->[0] != 200 && $cres->[0] != 304) {
-                    $res = [$cres->[0], "Can't check: $cres->[1]"];
-                    last;
-                }
-                $undo_step = $cres->[2];
 
-                if ($undo_step) {
-                    # 'check' returns an undo step, this means we need
-                    # to run the 'fix' hook
-                    if ($tx) {
-                        my $meth = $undo_action eq 'undo' ?
-                            'record_redo_step' : 'record_undo_step';
-                        $res = $tx->$meth(call_id=>$cid, data=>$undo_step);
-                        if ($res->[0] != 200 && $res->[0] != 304) {
-                            $res = [500, "Can't record undo/redo step: ".
-                                        "$res->[0] - $res->[1]"];
-                            last;
-                        }
-                    }
-                    unshift @$undo_steps, $undo_step;
-                    if ($cof) {
-                        $res = $cof->('fix', \%fargs, $step, $undo_step,
-                                      $r, $rmeta);
-                    } else {
-                        $res = $stepspec->{fix}->(\%fargs, $step, $undo_step,
-                                                  $r, $rmeta);
-                    }
-                } else {
-                    # step is a no-op, nothing needs to be done
+                my $ll = $gen_args{log_level_fix_step} // 'info';
+                if ($ll) {
+                    my $lm = $stepspec->{fix_log_message} //
+                        "Performing step #%(_idx)d: %(_step)s ...";
+                    my $meth = "${ll}f";
+                    $log->$meth("%s%s",
+                                $is_rollback ? "(ROLLBACK) " :
+                                    $dry_run ? "(DRY) " : "",
+                                sprintfn($lm, {
+                                    %fargs,
+                                    _idx  => $i,
+                                    _step => $step->[0],
+                                    map {
+                                        "_step_arg".($_-1) =>
+                                            $step->[$_],
+                                        } 1..@$step-1,
+                                }));
                 }
+                next STEP if $dry_run;
+
+                if ($stepspec->{call}) { # step is calling other function
+                    my $cres = $stepspec->{call}->(\%fargs, $step);
+
+                } else {
+                    my $cof = $stepspec->{check_or_fix};
+                    my ($cres, $undo_step);
+                    if ($cof) {
+                        $cres = $cof->('check', \%fargs, $step);
+                    } else {
+                        $cres = $stepspec->{check}->(\%fargs, $step);
+                    }
+                    if ($cres->[0] != 200 && $cres->[0] != 304) {
+                        $res = [$cres->[0], "Can't check: $cres->[1]"];
+                        last;
+                    }
+                    $undo_step = $cres->[2];
+
+                    if ($undo_step) {
+                        # 'check' returns an undo step, this means we need
+                        # to run the 'fix' hook
+                        if ($tx) {
+                            my $meth = $undo_action eq 'undo' ?
+                                'record_redo_step' : 'record_undo_step';
+                            $res = $tx->$meth(call_id=>$cid, data=>$undo_step);
+                            if ($res->[0] != 200 && $res->[0] != 304) {
+                                $res = [500, "Can't record undo/redo step: ".
+                                            "$res->[0] - $res->[1]"];
+                                last;
+                            }
+                        }
+                        unshift @$undo_steps, $undo_step;
+                        if ($cof) {
+                            $res = $cof->('fix', \%fargs, $step, $undo_step,
+                                          $r, $rmeta);
+                        } else {
+                            $res = $stepspec->{fix}->(
+                                \%fargs, $step, $undo_step, $r, $rmeta);
+                        }
+                    } else {
+                        # step is a no-op, nothing needs to be done
+                    }
+                } # step is check/fix
+
             }
             if ($res && $res->[0] != 200 && $res->[0] != 304) {
                 $res = [500, ($is_rollback ? "rollback ": "").
@@ -420,6 +474,11 @@ sub gen_undoable_func {
                 last STEP;
             }
         } # step
+
+        # $res not set at all under dry-run
+        if ($dry_run) {
+            return @$steps ? [200, "Dry run"] : [304, "Nothing done"];
+        }
 
         my $res0; # store failed res before rollback
         $res0 //= $res;
@@ -461,15 +520,14 @@ sub gen_undoable_func {
         }
 
         # doesn't always get to here, so for consistency we don't log
-        #$log->tracef("<- %s() = %s", $name, [$res->[0], $res->[1]]);
+        #$log->tracef("<- %s() = %s", $fqname, [$res->[0], $res->[1]]);
         $res;
     };
 
     if ($gen_args{install} // 1) {
         no strict 'refs';
-        *{ $name } = $code;
-        my ($pkg, $uname) = $name =~ /(.+)::(.+)/;
-        ${$pkg . "::SPEC"}{$uname} = $meta;
+        *{ $fqname } = $code;
+        ${$package . "::SPEC"}{$uqname} = $meta;
     }
 
     [200, "OK", {code=>$code, meta=>$meta}];
@@ -488,7 +546,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.13
+version 0.14
 
 =head1 SYNOPSIS
 
@@ -626,7 +684,9 @@ will exit with that response. Steps must be an array of steps, where each step
 is like this: [NAME, ...] (an array with step name as the first element and step
 argument(s) name, if any, in the rest of the elements).
 
-=item * B<check_args>* => I<code>
+Each step must be defined in the C<steps> argument.
+
+=item * B<check_args> => I<code>
 
 Code to check function's arguments.
 
@@ -639,31 +699,53 @@ and it will be carried on to the other steps like 'build_steps'. Code should
 return enveloped result. If response is not a success one, it will be used as
 the function's response.
 
-=item * B<description>* => I<śtr>
+=item * B<description> => I<str>
 
 Generated function's description.
 
 =item * B<install> => I<bool> (default: 1)
 
-Whether function and meta should be installed.
+Whether to install generated function (and metadata).
 
 By default, generated function will be installed to the specified (or caller's)
 package, as well as its generated metadata into %SPEC. Set this argument to
 false to skip installing.
 
+=item * B<log_level_fix_step> => I<str> (default: "info")
+
+At what level to show log messages when performing step.
+
+By default, it is at C<info> (can be turned on using --verbose or VERBOSE=1 in
+command-line scripts). For example:
+
+    % VERBOSE=1 u-trash --dry-run *.bak
+    [info] (DRY) Trashing file1.bak ...
+    [info] (DRY) Trashing file2.bak ...
+    [info] (DRY) Trashing file3.bak ...
+
+However, if you feel it is too chatty, you can lower it to 'trace', for example.
+
 =item * B<name>* => I<str>
 
-Function name.
+Generated function's name, e.g. `myfunc`.
 
-Should be fully qualified, e.g. Foo::Bar::func, or caller's package will be
-used. Qualified name is required to install the generated function into the
-right package.
+=item * B<package> => I<str>
+
+Generated function's package, e.g. `My::Package`.
+
+This is needed mostly for installing the function. You usually don't need to
+supply this if you set C<install> to false.
+
+If not specified, caller's package will be used by default.
 
 =item * B<steps>* => I<hash>
 
 Steps specification.
 
-=item * B<summary>* => I<str>
+A step must at least have C<check> and C<fix> routines (or a single combined
+C<check_and_fix> routine).
+
+=item * B<summary> => I<str>
 
 Generated function's summary.
 

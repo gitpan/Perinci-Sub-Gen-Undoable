@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.13
+    version 0.14
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -102,7 +102,9 @@ FUNCTIONS
         array with step name as the first element and step argument(s) name,
         if any, in the rest of the elements).
 
-    *   check_args* => *code*
+        Each step must be defined in the "steps" argument.
+
+    *   check_args => *code*
 
         Code to check function's arguments.
 
@@ -116,31 +118,54 @@ FUNCTIONS
         'build_steps'. Code should return enveloped result. If response is
         not a success one, it will be used as the function's response.
 
-    *   description* => *śtr*
+    *   description => *str*
 
         Generated function's description.
 
     *   install => *bool* (default: 1)
 
-        Whether function and meta should be installed.
+        Whether to install generated function (and metadata).
 
         By default, generated function will be installed to the specified
         (or caller's) package, as well as its generated metadata into %SPEC.
         Set this argument to false to skip installing.
 
+    *   log_level_fix_step => *str* (default: "info")
+
+        At what level to show log messages when performing step.
+
+        By default, it is at "info" (can be turned on using --verbose or
+        VERBOSE=1 in command-line scripts). For example:
+
+            % VERBOSE=1 u-trash --dry-run *.bak
+            [info] (DRY) Trashing file1.bak ...
+            [info] (DRY) Trashing file2.bak ...
+            [info] (DRY) Trashing file3.bak ...
+
+        However, if you feel it is too chatty, you can lower it to 'trace',
+        for example.
+
     *   name* => *str*
 
-        Function name.
+        Generated function's name, e.g. `myfunc`.
 
-        Should be fully qualified, e.g. Foo::Bar::func, or caller's package
-        will be used. Qualified name is required to install the generated
-        function into the right package.
+    *   package => *str*
+
+        Generated function's package, e.g. `My::Package`.
+
+        This is needed mostly for installing the function. You usually don't
+        need to supply this if you set "install" to false.
+
+        If not specified, caller's package will be used by default.
 
     *   steps* => *hash*
 
         Steps specification.
 
-    *   summary* => *str*
+        A step must at least have "check" and "fix" routines (or a single
+        combined "check_and_fix" routine).
+
+    *   summary => *str*
 
         Generated function's summary.
 
@@ -182,12 +207,12 @@ POD ERRORS
     Hey! The above document had some coding errors, which are explained
     below:
 
-    Around line 558:
+    Around line 616:
         You have '=item 1' instead of the expected '=item 2'
 
-    Around line 567:
+    Around line 625:
         You have '=item 1' instead of the expected '=item 3'
 
-    Around line 581:
+    Around line 639:
         You have '=item 1' instead of the expected '=item 4'
 

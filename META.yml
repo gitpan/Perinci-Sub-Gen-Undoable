@@ -16,9 +16,12 @@ meta-spec:
 name: Perinci-Sub-Gen-Undoable
 requires:
   Log::Any: 0
+  Perinci::Sub::Gen::common: 0
   Rinci: 1.1.18
+  SHARYANTO::Log::Util: 0
+  Text::sprintfn: 0
   perl: 5.010001
 resources:
   homepage: http://search.cpan.org/dist/Perinci-Sub-Gen-Undoable/
   repository: http://github.com/sharyanto/perl-Perinci-Sub-Gen-Undoable
-version: 0.13
+version: 0.14
