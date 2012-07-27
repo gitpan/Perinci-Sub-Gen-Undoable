@@ -1,5 +1,12 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.15     2012-07-27 (SHARYANTO)
+
+         [ENHANCEMENTS]
+
+         - Step's fix_log_message can also be a coderef.
+
+
 0.14     2012-07-27 (SHARYANTO)
 
          [ENHANCEMENTS]

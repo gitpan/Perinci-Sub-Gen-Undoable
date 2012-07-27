@@ -10,7 +10,7 @@ use Scalar::Util qw(blessed);
 use SHARYANTO::Log::Util qw(@log_levels);
 use Text::sprintfn;
 
-our $VERSION = '0.14'; # VERSION
+our $VERSION = '0.15'; # VERSION
 
 our @ISA       = qw(Exporter);
 our @EXPORT_OK = qw(gen_undoable_func);
@@ -203,7 +203,7 @@ _
                         fix_log_message => {
                             summary => 'String format to use to display '.
                                 'log message when performing step',
-                            schema => 'str*',
+                            schema => ['any*' => {of=>['str*', 'code*']}],
                             description => <<'_',
 
 Format string that will be passed to Text::sprintfn::sprintfn to format the log
@@ -216,6 +216,11 @@ with `_idx` (the step number, starts from 1), `_step` (the step name),
 If not supplied, the default log message is something like:
 
     "Performing step #%(_idx)d: %(_step) ..."
+
+Alternatively, `fix_log_message` can also be a coderef. It will be passed
+(\%args, $step) and should return a string (the log message). The log message
+will *not* be passed to sprintfn() and instead should be the final message to
+display.
 
 _
                         },
@@ -408,19 +413,25 @@ sub gen_undoable_func {
                 if ($ll) {
                     my $lm = $stepspec->{fix_log_message} //
                         "Performing step #%(_idx)d: %(_step)s ...";
+                    if (ref($lm) eq 'CODE') {
+                        $lm = $lm->(\%fargs, $step);
+                    } else {
+                        $lm = sprintfn($lm, {
+                            %fargs,
+                            _idx  => $i,
+                            _step => $step->[0],
+                            map {
+                                "_step_arg".($_-1) =>
+                                    $step->[$_],
+                                } 1..@$step-1,
+                        });
+                    }
                     my $meth = "${ll}f";
                     $log->$meth("%s%s",
                                 $is_rollback ? "(ROLLBACK) " :
                                     $dry_run ? "(DRY) " : "",
-                                sprintfn($lm, {
-                                    %fargs,
-                                    _idx  => $i,
-                                    _step => $step->[0],
-                                    map {
-                                        "_step_arg".($_-1) =>
-                                            $step->[$_],
-                                        } 1..@$step-1,
-                                }));
+                                $lm,
+                            );
                 }
                 next STEP if $dry_run;
 
@@ -546,7 +557,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.14
+version 0.15
 
 =head1 SYNOPSIS
 
