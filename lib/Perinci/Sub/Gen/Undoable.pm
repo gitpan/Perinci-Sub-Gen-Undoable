@@ -5,15 +5,14 @@ use strict;
 use warnings;
 use Log::Any '$log';
 
+use Perinci::Exporter;
 use Perinci::Sub::Gen::common;
-use Scalar::Util qw(blessed);
+use Perinci::Sub::Wrapper qw(caller);
+use Scalar::Util qw(blessed reftype);
 use SHARYANTO::Log::Util qw(@log_levels);
 use Text::sprintfn;
 
-our $VERSION = '0.15'; # VERSION
-
-our @ISA       = qw(Exporter);
-our @EXPORT_OK = qw(gen_undoable_func);
+our $VERSION = '0.16'; # VERSION
 
 our %SPEC;
 
@@ -256,7 +255,7 @@ sub gen_undoable_func {
     my ($uqname, $package);
     my $fqname = $gen_args{name};
     return [400, "Please specify name"] unless $fqname;
-    my @caller = caller;
+    my @caller = caller();
     if ($fqname =~ /(.+)::(.+)/) {
         $package = $1;
         $uqname  = $2;
@@ -359,7 +358,7 @@ sub gen_undoable_func {
         } else {
             my $bs = $gen_args{build_steps};
 
-            if (ref($bs) eq 'CODE') {
+            if ((reftype($bs) // '') eq 'CODE') {
                 $res = $bs->(\%fargs);
                 return $res unless $res->[0] == 200;
                 $steps = $res->[2];
@@ -413,7 +412,7 @@ sub gen_undoable_func {
                 if ($ll) {
                     my $lm = $stepspec->{fix_log_message} //
                         "Performing step #%(_idx)d: %(_step)s ...";
-                    if (ref($lm) eq 'CODE') {
+                    if ((reftype($lm) // '') eq 'CODE') {
                         $lm = $lm->(\%fargs, $step);
                     } else {
                         $lm = sprintfn($lm, {
@@ -557,7 +556,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.15
+version 0.16
 
 =head1 SYNOPSIS
 

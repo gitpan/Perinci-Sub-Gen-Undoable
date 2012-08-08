@@ -1,5 +1,10 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.16     2012-08-08 (SHARYANTO)
+
+         - Use Perinci::Exporter.
+
+
 0.15     2012-07-27 (SHARYANTO)
 
          [ENHANCEMENTS]

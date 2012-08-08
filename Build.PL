@@ -18,15 +18,17 @@ my %module_build_args = (
     "Steven Haryanto <stevenharyanto\@gmail.com>"
   ],
   "dist_name" => "Perinci-Sub-Gen-Undoable",
-  "dist_version" => "0.15",
+  "dist_version" => "0.16",
   "license" => "perl",
   "module_name" => "Perinci::Sub::Gen::Undoable",
   "recommends" => {},
   "recursive_test_files" => 1,
   "requires" => {
     "Log::Any" => 0,
+    "Perinci::Exporter" => 0,
     "Perinci::Sub::Gen::common" => 0,
-    "Rinci" => "1.1.18",
+    "Perinci::Sub::Wrapper" => "0.29",
+    "Rinci" => "v1.1.18",
     "SHARYANTO::Log::Util" => 0,
     "Text::sprintfn" => 0,
     "perl" => "5.010001"
