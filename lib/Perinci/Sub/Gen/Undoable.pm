@@ -12,7 +12,7 @@ use Scalar::Util qw(blessed reftype);
 use SHARYANTO::Log::Util qw(@log_levels);
 use Text::sprintfn;
 
-our $VERSION = '0.16'; # VERSION
+our $VERSION = '0.17'; # VERSION
 
 our %SPEC;
 
@@ -159,7 +159,7 @@ _
                         check => {
                             summary => "Code to check step's state",
                             schema => ['any*' => {of=>['code*','array*']}],
-                            req => 0, # XXX not if check_of_fix/call specified
+                            req => 0, # XXX req if check_of_fix not specified
                             description => <<'_',
 
 Code will be passed (\%args, $step) and is expected to return an enveloped
@@ -173,7 +173,7 @@ _
                         fix => {
                             summary => "Code to fix the step's state",
                             schema => 'code*',
-                            req => 0, # XXX not if check_of_fix/call specified
+                            req => 0, # XXX req if check_of_fix not specified
                             description => <<'_',
 
 Code will be passed (\%args, $step, $undo, $r, $rmeta), and is expected to
@@ -188,7 +188,7 @@ _
                         check_or_fix => {
                             summary => "Combined alternative for check+fix",
                             schema => 'code*',
-                            req => 0, # XXX req if check/fix/call not specified
+                            req => 0, # XXX req if check/fix not specified
                             description => <<'_',
 
 This is an alternative to specifying check and fix separately, and can be more
@@ -214,7 +214,7 @@ with `_idx` (the step number, starts from 1), `_step` (the step name),
 
 If not supplied, the default log message is something like:
 
-    "Performing step #%(_idx)d: %(_step) ..."
+    "Performing step: %(_step) ..."
 
 Alternatively, `fix_log_message` can also be a coderef. It will be passed
 (\%args, $step) and should return a string (the log message). The log message
@@ -336,25 +336,11 @@ sub gen_undoable_func {
 
         my $steps = [];
         if ($undo_action eq 'undo') {
-            if ($tx) {
-                $res = $tx->get_undo_steps(call_id=>$cid);
-                return [500, "Can't get undo steps from tx manager: ".
-                            "$res->[0] - $res->[1]"] unless $res->[0]==200;
-                $steps = $res->[2];
-            } else {
-                $steps = $fargs{-undo_data}
-                    or return [400, "Please supply -undo_data for undo (notx)"];
-            }
+            $steps = $fargs{-undo_data}
+                or return [400, "Please supply -undo_data for undo"];
         } elsif ($undo_action eq 'redo') {
-            if ($tx) {
-                $res = $tx->get_redo_steps(call_id=>$cid);
-                return [500, "Can't get redo steps from tx manager: ".
-                            "$res->[0] - $res->[1]"] unless $res->[0]==200;
-                $steps = $res->[2];
-            } else {
-                $steps = $fargs{-undo_data}
-                    or return [400, "Please supply -undo_data for redo"];
-            }
+            $steps = $fargs{-undo_data}
+                or return [400, "Please supply -undo_data for redo"];
         } else {
             my $bs = $gen_args{build_steps};
 
@@ -411,7 +397,7 @@ sub gen_undoable_func {
                 my $ll = $gen_args{log_level_fix_step} // 'info';
                 if ($ll) {
                     my $lm = $stepspec->{fix_log_message} //
-                        "Performing step #%(_idx)d: %(_step)s ...";
+                        "Performing step: %(_step)s ...";
                     if ((reftype($lm) // '') eq 'CODE') {
                         $lm = $lm->(\%fargs, $step);
                     } else {
@@ -556,7 +542,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.16
+version 0.17
 
 =head1 SYNOPSIS
 

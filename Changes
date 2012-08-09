@@ -1,5 +1,13 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.17     2012-08-09 (SHARYANTO)
+
+         Update to Rinci 1.1.22 (and Perinci::Tx::Manager 0.27), where we expect
+         undo data to be in -undo_data argument instead of using
+         get_undo_steps() and get_redo_steps(). This change is to handle nested
+         calls.
+
+
 0.16     2012-08-08 (SHARYANTO)
 
          - Use Perinci::Exporter.

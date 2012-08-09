@@ -19,6 +19,7 @@ requires:
   Perinci::Exporter: 0
   Perinci::Sub::Gen::common: 0
   Perinci::Sub::Wrapper: 0.29
+  Perinci::Util: 0
   Rinci: v1.1.18
   SHARYANTO::Log::Util: 0
   Text::sprintfn: 0
@@ -26,4 +27,4 @@ requires:
 resources:
   homepage: http://search.cpan.org/dist/Perinci-Sub-Gen-Undoable/
   repository: http://github.com/sharyanto/perl-Perinci-Sub-Gen-Undoable
-version: 0.16
+version: 0.17
