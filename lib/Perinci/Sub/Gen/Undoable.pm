@@ -10,9 +10,10 @@ use Perinci::Sub::Gen::common;
 use Perinci::Sub::Wrapper qw(caller);
 use Scalar::Util qw(blessed reftype);
 use SHARYANTO::Log::Util qw(@log_levels);
+use SHARYANTO::Package::Util qw(package_exists);
 use Text::sprintfn;
 
-our $VERSION = '0.17'; # VERSION
+our $VERSION = '0.18'; # VERSION
 
 our %SPEC;
 
@@ -390,8 +391,26 @@ sub gen_undoable_func {
                 }
                 my $stepspec = $gen_args{steps}{$step->[0]};
                 if (!$stepspec) {
-                    $res = [500, "Unknown step '$step->[0]'"];
-                    last;
+                    # attempt to load step specification from a module first
+                    my $m = "Perinci::Sub::Step::$step->[0]";
+                    eval {
+                        unless (package_exists($m)) {
+                            my $mp = $m;
+                            $mp =~ s!::!/!g;
+                            $mp .= ".pm";
+                            $log->tracef(
+                                "Trying to load step spec from %s ...",$m);
+                            my $rres = require $mp;
+                            $log->tracef("Loaded %s", $m) if $rres;
+                        }
+                        no strict 'refs';
+                        $stepspec = *{"$m\::spec"}{CODE}->();
+                    };
+                    $log->trace("Can't load step spec from $m: $@") if $@;
+                    if (!$stepspec) {
+                        $res = [500, "Unknown step '$step->[0]'"];
+                        last;
+                    }
                 }
 
                 my $ll = $gen_args{log_level_fix_step} // 'info';
@@ -418,39 +437,35 @@ sub gen_undoable_func {
                                 $lm,
                             );
                 }
-                next STEP if $dry_run;
 
-                if ($stepspec->{call}) { # step is calling other function
-                    my $cres = $stepspec->{call}->(\%fargs, $step);
-
+                my $cof = $stepspec->{check_or_fix};
+                my ($cres, $undo_step);
+                if ($cof) {
+                    $cres = $cof->('check', \%fargs, $step);
                 } else {
-                    my $cof = $stepspec->{check_or_fix};
-                    my ($cres, $undo_step);
-                    if ($cof) {
-                        $cres = $cof->('check', \%fargs, $step);
-                    } else {
-                        $cres = $stepspec->{check}->(\%fargs, $step);
-                    }
-                    if ($cres->[0] != 200 && $cres->[0] != 304) {
-                        $res = [$cres->[0], "Can't check: $cres->[1]"];
-                        last;
-                    }
-                    $undo_step = $cres->[2];
+                    $cres = $stepspec->{check}->(\%fargs, $step);
+                }
+                if ($cres->[0] != 200 && $cres->[0] != 304) {
+                    $res = [$cres->[0], "Can't check: $cres->[1]"];
+                    last;
+                }
+                $undo_step = $cres->[2];
 
-                    if ($undo_step) {
-                        # 'check' returns an undo step, this means we need
-                        # to run the 'fix' hook
-                        if ($tx) {
-                            my $meth = $undo_action eq 'undo' ?
-                                'record_redo_step' : 'record_undo_step';
-                            $res = $tx->$meth(call_id=>$cid, data=>$undo_step);
-                            if ($res->[0] != 200 && $res->[0] != 304) {
-                                $res = [500, "Can't record undo/redo step: ".
-                                            "$res->[0] - $res->[1]"];
-                                last;
-                            }
+                if ($undo_step) {
+                    # 'check' returns an undo step, this means we need
+                    # to run the 'fix' hook
+                    if ($tx) {
+                        my $meth = $undo_action eq 'undo' ?
+                            'record_redo_step' : 'record_undo_step';
+                        $res = $tx->$meth(call_id=>$cid, data=>$undo_step);
+                        if ($res->[0] != 200 && $res->[0] != 304) {
+                            $res = [500, "Can't record undo/redo step: ".
+                                        "$res->[0] - $res->[1]"];
+                            last;
                         }
-                        unshift @$undo_steps, $undo_step;
+                    }
+                    unshift @$undo_steps, $undo_step;
+                    unless ($dry_run) {
                         if ($cof) {
                             $res = $cof->('fix', \%fargs, $step, $undo_step,
                                           $r, $rmeta);
@@ -458,12 +473,12 @@ sub gen_undoable_func {
                             $res = $stepspec->{fix}->(
                                 \%fargs, $step, $undo_step, $r, $rmeta);
                         }
-                    } else {
-                        # step is a no-op, nothing needs to be done
                     }
-                } # step is check/fix
+                } else {
+                    # step is a no-op, nothing needs to be done
+                }
+            } # block
 
-            }
             if ($res && $res->[0] != 200 && $res->[0] != 304) {
                 $res = [500, ($is_rollback ? "rollback ": "").
                         "step #$i/".scalar(@$steps). ": $res->[0] - $res->[1]"];
@@ -471,9 +486,17 @@ sub gen_undoable_func {
             }
         } # step
 
+        my $status;
+        my $msg;
+
         # $res not set at all under dry-run
         if ($dry_run) {
-            return @$steps ? [200, "Dry run"] : [304, "Nothing done"];
+            if (@$steps) {
+                ($status, $msg) = (200, "Dry run");
+            } else {
+                ($status, $msg) = (304, "Nothing to do");
+            }
+            goto RET;
         }
 
         my $res0; # store failed res before rollback
@@ -507,13 +530,17 @@ sub gen_undoable_func {
 
         return [$res0->[0], "$res0->[1] (rolled back, notx)"] if $is_rollback;
 
-        $rmeta->{undo_data} = $undo_steps if $save_undo;
+      RET:
         $r = undef unless keys %$r;
-        if (@$undo_steps) {
-            $res = [200, "OK", $r, $rmeta];
-        } else {
-            $res = [304, "Nothing done", $r, $rmeta];
+        $rmeta->{undo_data} = $undo_steps if $save_undo;
+        unless ($status) {
+            if (@$undo_steps) {
+                ($status, $msg) = (200, "Done");
+            } else {
+                ($status, $msg) = (304, "Nothing done");
+            }
         }
+        $res = [$status, $msg, $r, $rmeta];
 
         # doesn't always get to here, so for consistency we don't log
         #$log->tracef("<- %s() = %s", $fqname, [$res->[0], $res->[1]]);
@@ -542,7 +569,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.17
+version 0.18
 
 =head1 SYNOPSIS
 

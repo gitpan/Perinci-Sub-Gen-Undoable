@@ -33,6 +33,7 @@
             "Perinci::Util" : 0,
             "Rinci" : "v1.1.18",
             "SHARYANTO::Log::Util" : 0,
+            "SHARYANTO::Package::Util" : 0,
             "Text::sprintfn" : 0,
             "perl" : "5.010001"
          }
@@ -50,6 +51,6 @@
          "url" : "http://github.com/sharyanto/perl-Perinci-Sub-Gen-Undoable"
       }
    },
-   "version" : "0.17"
+   "version" : "0.18"
 }
 
