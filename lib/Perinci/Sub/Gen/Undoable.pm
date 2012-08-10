@@ -6,14 +6,14 @@ use warnings;
 use Log::Any '$log';
 
 use Perinci::Exporter;
-use Perinci::Sub::Gen::common;
+use Perinci::Sub::Gen;
 use Perinci::Sub::Wrapper qw(caller);
 use Scalar::Util qw(blessed reftype);
 use SHARYANTO::Log::Util qw(@log_levels);
 use SHARYANTO::Package::Util qw(package_exists);
 use Text::sprintfn;
 
-our $VERSION = '0.20'; # VERSION
+our $VERSION = '0.21'; # VERSION
 
 our %SPEC;
 
@@ -111,7 +111,7 @@ Additional notes:
 
 _
     args => {
-        %Perinci::Sub::Gen::common::common_args,
+        %Perinci::Sub::Gen::common_args,
         tx => {
             summary => 'Whether function is transactional',
             schema  => [hash => {default=>{}}],
@@ -590,7 +590,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.20
+version 0.21
 
 =head1 SYNOPSIS
 

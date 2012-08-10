@@ -17,7 +17,7 @@ name: Perinci-Sub-Gen-Undoable
 requires:
   Log::Any: 0
   Perinci::Exporter: 0
-  Perinci::Sub::Gen::common: 0
+  Perinci::Sub::Gen: 0
   Perinci::Sub::Wrapper: 0.29
   Perinci::Util: 0
   Rinci: v1.1.18
@@ -28,4 +28,4 @@ requires:
 resources:
   homepage: http://search.cpan.org/dist/Perinci-Sub-Gen-Undoable/
   repository: http://github.com/sharyanto/perl-Perinci-Sub-Gen-Undoable
-version: 0.20
+version: 0.21

@@ -1,5 +1,13 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.21     2012-08-10 (SHARYANTO)
+
+         No functional changes. Use Perinci::Sub::Gen instead of the old
+         Perinci::Sub::Gen::common (which caused circular dependency problem
+         since it is contained in Perinci-Sub-Gen-AccessTable, which depends on
+         Perinci-CmdLine, which depends on Perinci, which depends on us).
+
+
 0.20     2012-08-10 (SHARYANTO)
 
          [ENHANCEMENTS]
