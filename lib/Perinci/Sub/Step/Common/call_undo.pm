@@ -4,7 +4,7 @@ use 5.010;
 use strict;
 use warnings;
 
-our $VERSION = '0.19'; # VERSION
+our $VERSION = '0.20'; # VERSION
 
 require Perinci::Sub::Step::Common::call;
 
@@ -13,8 +13,10 @@ sub spec {
         summary => 'Call another undoable local function (for undo)',
         description => <<'_',
 
-This step is the undo step for `call`. Its arguments are the same as `call`'s:
-`[f, args, undo_data]`, except `undo_data` is required.
+Syntax: `["call_undo", $f, $args, $undo_data]`.
+
+This step is the undo step for `call`. Its arguments are the same as `call`'s,
+except `$undo_data` is required.
 
 _
         check_or_fix => sub {
@@ -36,7 +38,7 @@ Perinci::Sub::Step::Common::call_undo - Call another undoable local function (fo
 
 =head1 VERSION
 
-version 0.19
+version 0.20
 
 =head1 DESCRIPTION
 

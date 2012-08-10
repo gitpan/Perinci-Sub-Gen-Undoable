@@ -6,7 +6,7 @@ use warnings;
 
 use Perinci::Util qw(get_package_meta_accessor);
 
-our $VERSION = '0.19'; # VERSION
+our $VERSION = '0.20'; # VERSION
 
 # provide 'check_or_fix' functionality for several steps: call, call_undo,
 # call_riap, call_riap_undo.
@@ -46,7 +46,7 @@ sub __check_or_fix_for_call_or_call_undo {
             ref($fargs0) eq 'HASH'
                 or return [400, "Function arguments must be hash"];
         }
-        my $res = get_package_meta_accessor($pkg);
+        my $res = get_package_meta_accessor(package=>$pkg);
         $res->[0] == 200 or return [
             500, "Can't get meta accessor for $pkg: $res->[0] - $res->[1]"];
         my $ma   = $res->[2];
@@ -109,14 +109,16 @@ sub spec {
         summary => 'Call another undoable local function',
         description => <<'_',
 
-Arguments: `[f, args, undo_data]`, where `f` is the fully qualified function
-name (e.g. `Foo::Bar::func`), `args` is the arguments hashref (defaults to {}),
-and `undo_data` (optional) is undo data from function.
+Syntax: `["call", $f, $args, $undo_data]`.
+
+$f is the fully qualified function name (e.g. `Foo::Bar::func`), $args (hashref)
+is the arguments hashref (defaults to {}), and $undo_data (arrayref, optional)
+is undo data from function.
 
 During `check` phase, will check the function's metadata to see if function is
 indeed eligible (undoable, transactional, supports dry run, and is idempotent)
-and the call f under dry_run, to get function's undo data. Will return a
-`call_undo` undo step: ['call_undo', f, args, undo_data].
+and the call $f under dry_run mode, to get function's undo data. Will return a
+`call_undo` undo step: `["call_undo", $f, $args, $undo_data]`.
 
 During `fix` phase, will call the function (passing -tx_manager, -undo_data, et
 al) and return its result.
@@ -141,7 +143,7 @@ Perinci::Sub::Step::Common::call - Call another undoable local function
 
 =head1 VERSION
 
-version 0.19
+version 0.20
 
 =head1 DESCRIPTION
 

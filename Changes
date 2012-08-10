@@ -1,5 +1,13 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.20     2012-08-10 (SHARYANTO)
+
+         [ENHANCEMENTS]
+
+         - In `steps` argument, instead of a stepspec hash, a string name
+           containing name of another step can also be specified, for aliasing.
+
+
 0.19     2012-08-10 (SHARYANTO)
 
          No functional changes. Suppress logging fix message when Common::call*

@@ -13,9 +13,42 @@ use SHARYANTO::Log::Util qw(@log_levels);
 use SHARYANTO::Package::Util qw(package_exists);
 use Text::sprintfn;
 
-our $VERSION = '0.19'; # VERSION
+our $VERSION = '0.20'; # VERSION
 
 our %SPEC;
+
+sub get_step_spec {
+    my ($name, $steps) = @_;
+    $steps //= {};
+
+    my $spec = $steps->{$name};
+    if (defined($spec) && !ref($spec)) {
+        $name = $spec;
+        $spec = $steps->{$name};
+    } # currently only allows 1 level of aliasing
+    if (defined($spec) && !ref($spec)) {
+        $log->warn("Multiple levels of redirection in step: $name");
+        return;
+    }
+    unless (defined $spec) {
+        # attempt to load step specification from a module first
+        my $m = "Perinci::Sub::Step::$name";
+        eval {
+            unless (package_exists($m)) {
+                my $mp = $m;
+                $mp =~ s!::!/!g;
+                $mp .= ".pm";
+                $log->tracef("Trying to load step spec from %s ...",$m);
+                my $rres = require $mp;
+                $log->tracef("Loaded %s", $m) if $rres;
+            }
+            no strict 'refs';
+            $spec = *{"$m\::spec"}{CODE}->();
+        };
+        $log->trace("Can't load step spec from $m: $@") if $@;
+    }
+    $spec;
+}
 
 $SPEC{gen_undoable_func} = {
     v           => 1.1,
@@ -142,8 +175,17 @@ _
             summary => 'Steps specification',
             description => <<'_',
 
-A step must at least have `check` and `fix` routines (or a single combined
+A hash of step name and step specification ("stepspec"). Stepspec is a hash.
+Stepspec must at least have `check` and `fix` routines (or a single combined
 `check_and_fix` routine).
+
+Instead of stepspec hash, a string can also be provided and it is assumed to be
+an alias to another step name.
+
+If a step is not found in this `steps` argument, it will be searched in
+Perinci::Sub::Step::<NAME> module. A step module should contain spec() which
+returns the stepspec. If the module is not found, an 'unknown step' error is
+returned.
 
 _
             schema  => ['hash*', {
@@ -269,9 +311,9 @@ sub gen_undoable_func {
     while (my ($sname, $stepspec) = each %{$gen_args{steps}}) {
         return [400, "Invalid step name, please only use alphanums"]
             unless $sname =~ /\A\w+(::\w+)*\z/;
-        return [400, "Please specify check+fix or check_or_fix only"]
-            unless $stepspec->{check} && $stepspec->{fix} xor
-                $stepspec->{check_or_fix};
+        #return [400, "Please specify check+fix or check_or_fix only"]
+        #    unless $stepspec->{check} && $stepspec->{fix} xor
+        #        $stepspec->{check_or_fix};
     }
     return [400, "Please specify build_steps"] unless $gen_args{build_steps};
     my $g_tx = $gen_args{tx} || {use=>1};
@@ -368,7 +410,7 @@ sub gen_undoable_func {
                 # under dry_run. is this ok?
             }
         }
-        $log->tracef("steps: %s", $steps);
+       $log->tracef("steps: %s", $steps);
 
         my $r     = {};
         my $rmeta = {};
@@ -389,29 +431,8 @@ sub gen_undoable_func {
                     $res = [500, "Not an array ($step)"];
                     last;
                 }
-                my $stepspec = $gen_args{steps}{$step->[0]};
-                if (!$stepspec) {
-                    # attempt to load step specification from a module first
-                    my $m = "Perinci::Sub::Step::$step->[0]";
-                    eval {
-                        unless (package_exists($m)) {
-                            my $mp = $m;
-                            $mp =~ s!::!/!g;
-                            $mp .= ".pm";
-                            $log->tracef(
-                                "Trying to load step spec from %s ...",$m);
-                            my $rres = require $mp;
-                            $log->tracef("Loaded %s", $m) if $rres;
-                        }
-                        no strict 'refs';
-                        $stepspec = *{"$m\::spec"}{CODE}->();
-                    };
-                    $log->trace("Can't load step spec from $m: $@") if $@;
-                    if (!$stepspec) {
-                        $res = [500, "Unknown step '$step->[0]'"];
-                        last;
-                    }
-                }
+                my $stepspec = get_step_spec($step->[0], $gen_args{steps})
+                    or return [500, "Unknown step: $step->[0]"];
 
                 my $ll = $gen_args{log_level_fix_step} // 'info';
                 if ($ll && ($fargs{-log_fix} // 1)) {
@@ -569,7 +590,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.19
+version 0.20
 
 =head1 SYNOPSIS
 
@@ -579,6 +600,17 @@ version 0.19
 
 This module helps you write undoable/transactional functions (as well as
 functions that support dry-run and are idempotent).
+
+=head1 FUNCTIONS
+
+=head2 get_step_spec($name, \%steps) => HASHREF
+
+C<%steps> is optional. Step C<$name> will first be searched in C<%steps>'s keys.
+If found and value is a hashref, that stepspec is returned. If found but value
+is a string, it is assumed to be the new step name (an alias) and the new step
+name is searched. If not found in C<%steps> (or C<%steps> if not provided), then
+an attempt is made to load module Perinci::Sub::Step::<$name>; the module should
+contain C<spec()> which if called returns the stepspec.
 
 =head1 SEE ALSO
 
@@ -765,8 +797,17 @@ If not specified, caller's package will be used by default.
 
 Steps specification.
 
-A step must at least have C<check> and C<fix> routines (or a single combined
+A hash of step name and step specification ("stepspec"). Stepspec is a hash.
+Stepspec must at least have C<check> and C<fix> routines (or a single combined
 C<check_and_fix> routine).
+
+Instead of stepspec hash, a string can also be provided and it is assumed to be
+an alias to another step name.
+
+If a step is not found in this C<steps> argument, it will be searched in
+Perinci::Sub::Step:: module. A step module should contain spec() which
+returns the stepspec. If the module is not found, an 'unknown step' error is
+returned.
 
 =item * B<summary> => I<str>
 
