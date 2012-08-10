@@ -4,7 +4,7 @@ use 5.010;
 use strict;
 use warnings;
 
-our $VERSION = '0.18'; # VERSION
+our $VERSION = '0.19'; # VERSION
 
 require Perinci::Sub::Step::Common::call;
 
@@ -36,7 +36,7 @@ Perinci::Sub::Step::Common::call_undo - Call another undoable local function (fo
 
 =head1 VERSION
 
-version 0.18
+version 0.19
 
 =head1 DESCRIPTION
 

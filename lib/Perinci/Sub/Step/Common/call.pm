@@ -6,7 +6,7 @@ use warnings;
 
 use Perinci::Util qw(get_package_meta_accessor);
 
-our $VERSION = '0.18'; # VERSION
+our $VERSION = '0.19'; # VERSION
 
 # provide 'check_or_fix' functionality for several steps: call, call_undo,
 # call_riap, call_riap_undo.
@@ -84,6 +84,7 @@ sub __check_or_fix_for_call_or_call_undo {
     }
     if ($whicha eq 'check') {
         $fargs{-dry_run} = 1;
+        $fargs{-log_fix} = 0;
     } else {
         $fargs{-tx_manager} = $cargs->{-tx_manager};
         $fargs{-tx_call_id} = $cargs->{-tx_call_id};
@@ -140,7 +141,7 @@ Perinci::Sub::Step::Common::call - Call another undoable local function
 
 =head1 VERSION
 
-version 0.18
+version 0.19
 
 =head1 DESCRIPTION
 

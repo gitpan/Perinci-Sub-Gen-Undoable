@@ -13,7 +13,7 @@ use SHARYANTO::Log::Util qw(@log_levels);
 use SHARYANTO::Package::Util qw(package_exists);
 use Text::sprintfn;
 
-our $VERSION = '0.18'; # VERSION
+our $VERSION = '0.19'; # VERSION
 
 our %SPEC;
 
@@ -414,7 +414,7 @@ sub gen_undoable_func {
                 }
 
                 my $ll = $gen_args{log_level_fix_step} // 'info';
-                if ($ll) {
+                if ($ll && ($fargs{-log_fix} // 1)) {
                     my $lm = $stepspec->{fix_log_message} //
                         "Performing step: %(_step)s ...";
                     if ((reftype($lm) // '') eq 'CODE') {
@@ -569,7 +569,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.18
+version 0.19
 
 =head1 SYNOPSIS
 

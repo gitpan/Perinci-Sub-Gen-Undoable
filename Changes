@@ -1,5 +1,11 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.19     2012-08-10 (SHARYANTO)
+
+         No functional changes. Suppress logging fix message when Common::call*
+         is just doing check phase, using special argument -log_fix => 0.
+
+
 0.18     2012-08-10 (SHARYANTO)
 
          [ENHANCEMENTS]
