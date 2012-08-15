@@ -12,11 +12,13 @@ sub test_gen {
     subtest $targs{test_name} => sub {
         my $res;
         my %fargs = (
-            name        => $targs{func_name},
-            summary     => $targs{summary},
-            description => $targs{description},
-            steps       => $targs{steps},
-            build_steps => $targs{build_steps},
+            v => 2,
+            name               => $targs{func_name},
+            summary            => $targs{summary},
+            description        => $targs{description},
+            check_state        => $targs{check_state},
+            fix_state          => $targs{fix_state},
+            check_or_fix_state => $targs{check_or_fix_state},
         );
         if ($targs{other_args}) {
             while (my ($k, $v) = each %{$targs{other_args}}) {
@@ -29,12 +31,17 @@ sub test_gen {
 
         if ($targs{dies}) {
             ok($eval_err, "dies");
+            return;
+        } else {
+            ok(!$eval_err, "doesn't die") or do {
+                diag "dies: $eval_err";
+                return;
+            };
         }
 
-        if ($targs{status}) {
-            is($res->[0], $targs{status}, "status = $targs{status}") or
-                do { diag explain $res; return };
-        }
+        $targs{status} //= 200;
+        is($res->[0], $targs{status}, "status = $targs{status}") or
+            do { diag explain $res; return };
 
         if ($res->[0] == 200) {
             my $func = $res->[2]{code};

@@ -1,5 +1,13 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.22     2012-08-15 (SHARYANTO)
+
+         This release breaks backward compatibility. It introduce v and requires
+         v=2 (previous version is at v=1). Arguments change (no more
+         'build_steps', 'steps'), no more steps concept. Now follows Rinci
+         1.1.23.
+
+
 0.21     2012-08-10 (SHARYANTO)
 
          No functional changes. Use Perinci::Sub::Gen instead of the old

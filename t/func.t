@@ -14,9 +14,8 @@ require "testlib.pl";
 
 ok(1);
 
-# XXX func: check unknown steps
+# XXX func: check unknown function in calls
 # XXX func: check missing -tx_manager
-# XXX func: check missing -tx_call_id
 # XXX func: check invalid -undo_data
 # XXX func: test transactions
 # XXX func: test using Test::Setup

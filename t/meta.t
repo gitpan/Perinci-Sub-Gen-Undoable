@@ -14,8 +14,8 @@ require "testlib.pl";
 test_gen(
     test_name   => 'basics',
     func_name   => 'main::f',
-    steps       => {},
-    build_steps => sub {},
+    check_state => sub {},
+    fix_state   => sub {},
     post_test   => sub {
         my $res  = shift;
         my $meta = $res->[2]{meta};

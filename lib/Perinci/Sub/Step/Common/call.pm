@@ -6,7 +6,7 @@ use warnings;
 
 use Perinci::Util qw(get_package_meta_accessor);
 
-our $VERSION = '0.21'; # VERSION
+our $VERSION = '0.22'; # VERSION
 
 # provide 'check_or_fix' functionality for several steps: call, call_undo,
 # call_riap, call_riap_undo.
@@ -143,7 +143,7 @@ Perinci::Sub::Step::Common::call - Call another undoable local function
 
 =head1 VERSION
 
-version 0.21
+version 0.22
 
 =head1 DESCRIPTION
 
