@@ -1,5 +1,15 @@
 Revision history for Perinci-Sub-Gen-Undoable
 
+0.23     2012-08-16 (SHARYANTO) (not yet released)
+
+         - Add argument 'req_tx'.
+
+         - Some minor tweaks/fixes.
+
+         - Remove logging for sub entry/exit. Users should now use
+           Log::Any::For::Package.
+
+
 0.22     2012-08-15 (SHARYANTO)
 
          This release breaks backward compatibility. It introduce v and requires

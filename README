@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.22
+    version 0.23
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -151,6 +151,10 @@ FUNCTIONS
 
         If not specified, caller's package will be used by default.
 
+    *   req_tx => *bool* (default: 0)
+
+        Whether generated function require transaction or not.
+
     *   summary => *str*
 
         Generated function's summary.
@@ -197,9 +201,9 @@ POD ERRORS
     Hey! The above document had some coding errors, which are explained
     below:
 
-    Around line 454:
+    Around line 459:
         You have '=item 1' instead of the expected '=item 2'
 
-    Around line 490:
+    Around line 495:
         You have '=item 1' instead of the expected '=item 3'
 
