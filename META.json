@@ -30,7 +30,7 @@
             "Perinci::Exporter" : 0,
             "Perinci::Sub::Gen" : 0,
             "Perinci::Sub::Wrapper" : "0.29",
-            "Perinci::Util" : 0,
+            "Perinci::Tx::Manager" : "0.29",
             "Rinci" : "v1.1.23",
             "SHARYANTO::Log::Util" : 0,
             "SHARYANTO::Package::Util" : 0,
@@ -50,6 +50,6 @@
          "url" : "http://github.com/sharyanto/perl-Perinci-Sub-Gen-Undoable"
       }
    },
-   "version" : "0.23"
+   "version" : "0.24"
 }
 

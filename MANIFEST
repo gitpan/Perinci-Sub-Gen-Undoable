@@ -8,8 +8,6 @@ META.yml
 README
 dist.ini
 lib/Perinci/Sub/Gen/Undoable.pm
-lib/Perinci/Sub/Step/Common/call.pm
-lib/Perinci/Sub/Step/Common/call_undo.pm
 t/00-compile.t
 t/func.t
 t/meta.t

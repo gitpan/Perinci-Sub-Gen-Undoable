@@ -13,7 +13,7 @@ use Scalar::Util qw(blessed reftype);
 use SHARYANTO::Log::Util qw(@log_levels);
 use SHARYANTO::Package::Util qw(package_exists);
 
-our $VERSION = '0.23'; # VERSION
+our $VERSION = '0.24'; # VERSION
 
 our %SPEC;
 
@@ -393,7 +393,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.23
+version 0.24
 
 =head1 SYNOPSIS
 
@@ -403,17 +403,6 @@ version 0.23
 
 This module helps you write undoable/transactional functions (as well as
 functions that support dry-run and are idempotent).
-
-=head1 FUNCTIONS
-
-=head2 get_step_spec($name, \%steps) => HASHREF
-
-C<%steps> is optional. Step C<$name> will first be searched in C<%steps>'s keys.
-If found and value is a hashref, that stepspec is returned. If found but value
-is a string, it is assumed to be the new step name (an alias) and the new step
-name is searched. If not found in C<%steps> (or C<%steps> if not provided), then
-an attempt is made to load module Perinci::Sub::Step::<$name>; the module should
-contain C<spec()> which if called returns the stepspec.
 
 =head1 SEE ALSO
 

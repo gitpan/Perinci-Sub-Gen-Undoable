@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.23
+    version 0.24
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -11,16 +11,6 @@ SYNOPSIS
 DESCRIPTION
     This module helps you write undoable/transactional functions (as well as
     functions that support dry-run and are idempotent).
-
-FUNCTIONS
-  get_step_spec($name, \%steps) => HASHREF
-    %steps is optional. Step $name will first be searched in %steps's keys.
-    If found and value is a hashref, that stepspec is returned. If found but
-    value is a string, it is assumed to be the new step name (an alias) and
-    the new step name is searched. If not found in %steps (or %steps if not
-    provided), then an attempt is made to load module
-    Perinci::Sub::Step::<$name>; the module should contain "spec()" which if
-    called returns the stepspec.
 
 SEE ALSO
     Rinci::function::Undo, Rinci::function::Transaction, Rinci
@@ -201,9 +191,9 @@ POD ERRORS
     Hey! The above document had some coding errors, which are explained
     below:
 
-    Around line 459:
+    Around line 448:
         You have '=item 1' instead of the expected '=item 2'
 
-    Around line 495:
+    Around line 484:
         You have '=item 1' instead of the expected '=item 3'
 
