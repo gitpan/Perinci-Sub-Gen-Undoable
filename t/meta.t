@@ -21,7 +21,7 @@ test_gen(
         my $meta = $res->[2]{meta};
         ok($meta->{features}{undo}, 'meta: features: undo=1');
         ok($meta->{features}{idempotent}, 'meta: features: idempotent=1');
-        is_deeply($meta->{features}{tx}, {use=>1}, 'meta: features: tx');
+        is_deeply($meta->{features}{tx}, {use=>1, req=>1},'meta: features: tx');
         ok($meta->{features}{undo}, 'meta: features: undo=1');
     },
 );

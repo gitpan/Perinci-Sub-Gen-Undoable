@@ -13,7 +13,7 @@ use Scalar::Util qw(blessed reftype);
 use SHARYANTO::Log::Util qw(@log_levels);
 use SHARYANTO::Package::Util qw(package_exists);
 
-our $VERSION = '0.24'; # VERSION
+our $VERSION = '0.25'; # VERSION
 
 our %SPEC;
 
@@ -65,15 +65,11 @@ Here is the flow of the generated function:
 
    2c. We execute `fix_state` hook to fix state to final/fixed state. Hook will
        be passed ($args, $undo_data), where $undo_data was retrieved from
-       `check_state` hook. Hook must return enveloped result. If we are in
-       transaction, function returns with this result (failure will be rolled
-       back by TM). Otherwise, if result is failure, we perform our own rollback
-       (simulate TM).
+       `check_state` hook. Hook must return enveloped result. Function returns
+       with this result. Failure will trigger a rollback by TM.
 
 3. If we are called in undo mode (-undo_action => 'undo', -undo_data => $calls):
-   if we are in transaction (function is passed transaction manager object in
-   C<-tx_manager>) then we simply invoke TM's call() to process the undo calls.
-   Otherwise, we loop over $calls ourselves (simulate TM).
+   then we simply invoke TM's call() to process the undo calls.
 
 For examples, see Setup::* Perl modules.
 
@@ -92,14 +88,6 @@ For new interface, must be set to 2.
 _
         },
         %Perinci::Sub::Gen::common_args,
-        use_tx => {
-            summary => 'Whether generated function can use transaction or not',
-            schema  => [bool => {default=>1}],
-        },
-        req_tx => {
-            summary => 'Whether generated function require transaction or not',
-            schema  => [bool => {default=>0}],
-        },
         trash_dir => {
             summary => 'Whether function needs undo trash directory',
             schema  => [bool => {default => 0}],
@@ -189,9 +177,6 @@ sub gen_undoable_func {
         unless $gen_args{check_state} && $gen_args{fix_state} ||
             $gen_args{check_or_fix_state};
 
-    my $ftx = {};
-    $ftx->{use} = 1 if $gen_args{use_tx} // 1;
-    $ftx->{req} = 1 if $gen_args{req_tx};
     my $meta = {
         v           => 1.1,
         summary     => $gen_args{summary},
@@ -201,7 +186,7 @@ sub gen_undoable_func {
             undo       => 1,
             dry_run    => 1,
             idempotent => 1,
-            tx         => $ftx,
+            tx         => {use=>1, req=>1},
         },
         deps        => {},
     };
@@ -221,25 +206,15 @@ sub gen_undoable_func {
         my $undo_action = $fargs{-undo_action} // "";
         return [400, "Invalid -undo_action, please use do/undo/redo only"]
             unless !length($undo_action) || $undo_action =~ /\A(un|re)?do\z/;
-        my $tm; $tm     = $fargs{-tx_manager}
-            if $gen_args{use_tx} || $gen_args{req_tx};
-        return [412, "This function requires transaction, ".
-                    "please specify -tx_manager"] if !$tm && $gen_args{req_tx};
-        my $save_undo   = $undo_action ? 1:0;
-        if ($tm && !$save_undo) {
-            $log->warnf("Transaction manager passed without -undo_action, ".
-                            "might be a mistake?");
-        }
+        my $tm          = $fargs{-tx_manager} or
+            return [412, "This function requires transaction, ".
+                        "please specify -tx_manager"];
 
         if ($gen_args{trash_dir}) {
-            if ($tm) {
-                $res = $tm->get_trash_dir;
-                return [500, "Can't get trash dir: $res->[0] - $res->[1]"]
-                    unless $res->[0] == 200;
-                $fargs{-undo_trash_dir} //= $res->[2];
-            } else {
-                $fargs{-undo_trash_dir} //= File::Spec->tmpdir;
-            }
+            $res = $tm->get_trash_dir;
+            return [500, "Can't get trash dir: $res->[0] - $res->[1]"]
+                unless $res->[0] == 200;
+            $fargs{-undo_trash_dir} //= $res->[2];
             # XXX this actually has a side-effect of creating trash_dir even
             # under dry_run. is this ok?
         }
@@ -260,8 +235,8 @@ sub gen_undoable_func {
                 if $fargs{-log_call} // 1;
             return $res unless $res->[0] == 200;
             return $res if $dry_run;
-            my $ud = $res->[3]{undo_data};
 
+            my $ud = $res->[3]{undo_data};
             $log->tracef("Fixing state ...");
             if ($cof) {
                 $res = $cof->('fix', \%fargs, $ud);
@@ -271,15 +246,9 @@ sub gen_undoable_func {
             $log->tracef("Result of fix_state: %s", $res);
             if ($res->[0] == 200 || $res->[0] == 304) {
                 $res->[3]{undo_data} //= $ud;
-                return $res;
             }
 
-            return $res if $tm; # fail, let TM do the roll back
-
-            # fail, no TM provided, we perform our own rollback
-            $calls = $ud;
-            $log->tracef("Rolling back ...");
-            $is_rollback++;
+            return $res; # fail, let TM do the roll back
         }
 
         # when in undo/redo mode, we need to perform a list of calls. note that
@@ -288,86 +257,10 @@ sub gen_undoable_func {
         # need all of those to be safer, use TM. our own loop is just the
         # crutch.
 
-        if (!$calls) {
-            $calls = $fargs{-undo_data}
-                or return [400, "Please supply -undo_data for undo/redo"];
-            $log->tracef("Undo calls to perform: %s", $calls);
-        }
-
-        return $tm->call(calls => $calls) if $tm && !$dry_run;
-
-        # our own call loop, a simpler form like that found in TM
-
-        my $undo_calls = [];
-        my $call;
-        my $i = 0;
-        my $do_rollback;
-      CALL:
-        while ($i < @$calls) {
-            $i++;
-            $call = $calls->[$i-1];
-            undef $res;
-
-            my $lp = ($is_rollback ? "(rollback) " : "").
-                "Step $i/".scalar(@$calls)." ($call->[0])";
-
-            my $res0; # store failed res before rollback
-            $res0 //= $res;
-
-            my $code = \&{$call->[0]};
-
-            # get undo data
-            $res = $code->(%{$call->[1] // {}}, -dry_run=>1, -check_state=>0);
-            my $has_undo = $res->[0] == 200 && @{$res->[3]{undo_data} // []};
-            if ($res->[0] == 200 || $res->[0] == 304) {
-                push @$undo_calls, @{$res->[3]{undo_data} // []};
-            } else {
-                # we haven't done anything, just return instead of having to
-                # rollback
-                return $res if !$i || $dry_run;
-                $log->errorf("$lp Can't get undo data: %s%s", $res);
-                $do_rollback++;
-                last CALL;
-            }
-
-            unless ($has_undo) {
-                $log->tracef("$lp No undo data, skipped this step");
-                next CALL;
-            }
-
-            # call function again, for real
-            unless ($dry_run) {
-                $res = $code->(%{$call->[1] // {}});
-                $log->tracef("$lp res: %s", $res);
-                if ($res->[0] == 200 || $res->[0] == 304) {
-                } else {
-                    $log->errorf("$lp failed: %s%s", $res);
-                    $do_rollback++;
-                    last CALL;
-                }
-            }
-        } # call
-
-        my $res0 = $res; # the original function result, before rollback
-        if ($do_rollback) {
-            if (!$is_rollback) {
-                $calls = $undo_calls;
-                $undo_calls = [];
-                $is_rollback++;
-                $log->tracef("Rolling back, steps to perform: %s", $calls);
-                $i = 0;
-                goto CALL;
-            } else {
-                # what can we do, abandon ...
-                return [500, "Rollback failed (call #$i/".scalar(@$calls)."): ".
-                            "$res->[0] - $res->[1]"];
-            }
-        }
-
-        return [$res0->[0], "$res0->[1] (rolled back, notx)"] if $is_rollback;
-        my $status = @$undo_calls ? 200 : 304;
-        my $msg    = @$undo_calls ? "OK" : "Nothing done";
-        return [$status, $msg, undef, {undo_data=>$undo_calls}];
+        $calls = $fargs{-undo_data}
+            or return [400, "Please supply -undo_data for undo/redo"];
+        $log->tracef("Undo calls to perform: %s", $calls);
+        return $tm->call(calls => $calls, dry_run=>$dry_run);
 
     };
 
@@ -393,7 +286,7 @@ Perinci::Sub::Gen::Undoable - Generate undoable (transactional, dry-runnable, id
 
 =head1 VERSION
 
-version 0.24
+version 0.25
 
 =head1 SYNOPSIS
 
@@ -474,19 +367,15 @@ If we are called in do mode (-undo_action => 'do' or undefined):
 
    2c. We execute C<fix_state> hook to fix state to final/fixed state. Hook will
    be passed ($args, $undoI<data), where $undo>data was retrieved from
-   C<check_state> hook. Hook must return enveloped result. If we are in
-   transaction, function returns with this result (failure will be rolled
-   back by TM). Otherwise, if result is failure, we perform our own rollback
-   (simulate TM).
+   C<check_state> hook. Hook must return enveloped result. Function returns
+   with this result. Failure will trigger a rollback by TM.
 
 
 
 =item 1.
 
 If we are called in undo mode (-undoI<action => 'undo', -undo>data => $calls):
-   if we are in transaction (function is passed transaction manager object in
-   C) then we simply invoke TM's call() to process the undo calls.
-   Otherwise, we loop over $calls ourselves (simulate TM).
+   then we simply invoke TM's call() to process the undo calls.
 
 
 
@@ -555,10 +444,6 @@ supply this if you set C<install> to false.
 
 If not specified, caller's package will be used by default.
 
-=item * B<req_tx> => I<bool> (default: 0)
-
-Whether generated function require transaction or not.
-
 =item * B<summary> => I<str>
 
 Generated function's summary.
@@ -568,10 +453,6 @@ Generated function's summary.
 Whether function needs undo trash directory.
 
 If set to true, generator will put C<-undo_trash_dir> in function arguments.
-
-=item * B<use_tx> => I<bool> (default: 1)
-
-Whether generated function can use transaction or not.
 
 =item * B<v> => I<int> (default: 1)
 

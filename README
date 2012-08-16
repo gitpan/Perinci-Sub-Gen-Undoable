@@ -3,7 +3,7 @@ NAME
     dry-runnable, idempotent) function
 
 VERSION
-    version 0.24
+    version 0.25
 
 SYNOPSIS
      # See an example, like in Setup::File::Symlink
@@ -69,16 +69,12 @@ FUNCTIONS
 
            2c. We execute C<fix_state> hook to fix state to final/fixed state. Hook will
            be passed ($args, $undoI<data), where $undo>data was retrieved from
-           C<check_state> hook. Hook must return enveloped result. If we are in
-           transaction, function returns with this result (failure will be rolled
-           back by TM). Otherwise, if result is failure, we perform our own rollback
-           (simulate TM).
+           C<check_state> hook. Hook must return enveloped result. Function returns
+           with this result. Failure will trigger a rollback by TM.
 
     1.  If we are called in undo mode (-undo*action =* 'undo', -undo>data =>
-        $calls): if we are in transaction (function is passed transaction
-        manager object in C) then we simply invoke TM's call() to process
-        the undo calls. Otherwise, we loop over $calls ourselves (simulate
-        TM).
+        $calls): then we simply invoke TM's call() to process the undo
+        calls.
 
     For examples, see Setup::* Perl modules.
 
@@ -141,10 +137,6 @@ FUNCTIONS
 
         If not specified, caller's package will be used by default.
 
-    *   req_tx => *bool* (default: 0)
-
-        Whether generated function require transaction or not.
-
     *   summary => *str*
 
         Generated function's summary.
@@ -155,10 +147,6 @@ FUNCTIONS
 
         If set to true, generator will put "-undo_trash_dir" in function
         arguments.
-
-    *   use_tx => *bool* (default: 1)
-
-        Whether generated function can use transaction or not.
 
     *   v => *int* (default: 1)
 
@@ -191,9 +179,9 @@ POD ERRORS
     Hey! The above document had some coding errors, which are explained
     below:
 
-    Around line 448:
+    Around line 341:
         You have '=item 1' instead of the expected '=item 2'
 
-    Around line 484:
+    Around line 375:
         You have '=item 1' instead of the expected '=item 3'
 
